@@ -35,7 +35,7 @@ get_vdisk() {
         mkdir -p "$DOMAIN"
 
         # Download the needed .qcow2.xz 
-        echo "downloading the vdisk to "
+        echo "downloading the Home Assistant vdisk from the official source "
         if ! curl -L "$download_url" -o "$download_path"; then
             echo "Error.. Failed to download the .qcow2.xz file from $download_url"
             return 1
@@ -280,12 +280,13 @@ get_vm_network() {
 
 
 autoinstall() {
-    # see if the ha vm is already defined in libvirt
+    # See if the ha VM is already defined in libvirt
     if virsh dominfo "$VMNAME" &> /dev/null; then
         echo "VM '$VMNAME' is already defined. Skipping VM creation steps..."
-        return 0  # exit if ha vm setup already
+        return 0  # Exit if the HA VM setup is already done
+    fi  # <-- Missing `fi` added here
 
-    # see if the required directories exist. If not, create them.
+    # See if the required directories exist. If not, create them.
     if [ ! -d "$DOMAIN" ]; then
         mkdir -vp "$DOMAIN"
         echo "I have created the Home Assistant directories."
@@ -293,7 +294,7 @@ autoinstall() {
         echo "Home Assistant directories are already present...continuing."
     fi
 
-    # see if the ha vdisk is present. If not, download the ha vdisk from home assistant website
+    # See if the HA vdisk is present. If not, download the HA vdisk from the Home Assistant website
     if [ ! -e "$DOMAIN/vdisk1.img" ]; then
         get_vdisk
     else
@@ -301,9 +302,8 @@ autoinstall() {
         SKIPVDISK=yes
     fi
 
-    # reset perms (prob not needed)
+    # Reset permissions (probably not needed)
     chmod -R 777 "$DOMAIN/vdisk1.img"
-
 
     addxml
     definevm
