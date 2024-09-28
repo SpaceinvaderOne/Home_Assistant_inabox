@@ -460,10 +460,33 @@ definevm() {
     fi
 }
 
+icon() {
+    ICON_SOURCE="/config/Hassio_2.png"
+    ICON_DESTINATION="/icons/Hassio_2.png"
+
+    # does default icon exist?
+    if [ ! -f "$ICON_DESTINATION" ]; then
+        echo "Putting default ha vm icon in place"
+        
+        # copy the icon 
+        cp "$ICON_SOURCE" "$ICON_DESTINATION"
+
+        # check if the copy was successful
+        if [ $? -eq 0 ]; then
+            echo "Icon copied successfully."
+        else
+            echo "Failed to copy the icon."
+        fi
+    else
+        echo "Icon already there skipping....."
+    fi  
+}  
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 collect_info
+icon
 autoinstall
 get_vm_ip &
 

@@ -3,7 +3,7 @@
   <name>Home_Assistant</name>
   <uuid>7be0d7ae-6d7b-1217-0165-70b6da1140d8</uuid>
   <metadata>
-    <vmtemplate xmlns="unraid" name="Linux" icon="linux.png" os="linux"/>
+    <vmtemplate xmlns="unraid" name="Linux" icon="Hassio_2.png" os="linux"/>
   </metadata>
   <memory unit='KiB'>4194304</memory>
   <currentMemory unit='KiB'>4194304</currentMemory>
