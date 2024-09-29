@@ -348,6 +348,11 @@ sed -i "s#<mac address='.*'/>#<mac address='$MAC'/>#" "$XML"
 # set the bridge name with the value of $BRNAME
 sed -i "s#<source bridge='XXX'/>#<source bridge='$BRNAME'/>#" "$XML"
 
+# check for vhostX network source and change network block to suit
+if [[ $BRNAME =~ ^vhost[0-9]+$ ]]; then
+    sed -i "s#<interface type='bridge'>#<interface type='direct' trustGuestRxFilters='yes'>#" "$XML"
+    sed -i "s#<source bridge='.*'/>#<source dev='$BRNAME' mode='bridge'/>#" "$XML"
+fi
 
 # create an nvram file based off generated uuid for the vm
 echo "As this is an OVMF VM, I need to create an NVRAM file. Creating now ...."
