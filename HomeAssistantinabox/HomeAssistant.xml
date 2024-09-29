@@ -5,8 +5,8 @@
   <metadata>
     <vmtemplate xmlns="unraid" name="Linux" icon="Hassio_2.png" os="linux"/>
   </metadata>
-  <memory unit='KiB'>4194304</memory>
-  <currentMemory unit='KiB'>4194304</currentMemory>
+  <memory unit='KiB'>2097152</memory>
+  <currentMemory unit='KiB'>2097152</currentMemory>
   <memoryBacking>
     <nosharepages/>
   </memoryBacking>
