@@ -132,11 +132,9 @@ server {
         # Clear cached redirects using the Clear-Site-Data header
         add_header Clear-Site-Data "cache";
 
-        # Use a temporary redirect (HTTP 302) instead of permanent (HTTP 301)
-        # Append a query string with a dynamic timestamp to force the browser to treat it as a new URL
+        # Use a temporary redirect 302 instead of permanent to stop caching redirect & use dynamic timestamp to force the browser to treat it as a new URL
         return 302 http://$vm_ip:8123?nocache=$timestamp;
 
-        # Optionally, use an HTML refresh as a fallback
         default_type text/html;
         return 200 '<html><head><meta http-equiv="refresh" content="0;url=http://$vm_ip:8123?nocache=$timestamp"></head><body></body></html>';
     }

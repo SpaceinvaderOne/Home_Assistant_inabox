@@ -91,7 +91,7 @@ HomeAssistant_inabox provides a robust solution by combining a Docker container 
 
 ## Example Use Case
 
-1. **Scenario**: You want to run Home Assistant on your Unraid server, but you also want to manage it through the Docker interface rather than a separate VM management tab.  
+1. **Scenario**: You want to run Home Assistant on your Unraid server, but you also want to manage it through the Docker interface rather than a separate VM management tab then having to use browser to login. 
 2. **Solution**: Install HomeAssistant_inabox and configure the necessary variables. With this setup, Home Assistant will run as a VM but be accessible directly from the Docker WebUI link.  
 3. **Result**: This simplifies your environment and provides a single point of access for Home Assistant, combining the convenience of Docker management with the power and flexibility of a dedicated VM.
 
