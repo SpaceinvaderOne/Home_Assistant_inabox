@@ -329,7 +329,7 @@ addxml() {
 sed -i "s#<name>.*</name>#<name>$VMNAME</name>#" "$XML"
 
 # replace uuid with newly generated one
-sed -i "s#<uuid>.*</uuid>#<uuid>$UUID</uuid>#" "$XML_FILE"
+sed -i "s#<uuid>.*</uuid>#<uuid>$UUID</uuid>#" "$XML"
 
 # set vm to have the highest q35 on server
 sed -i "s#<type arch='x86_64' machine='XXXXXX'>#<type arch='x86_64' machine='$highest_q35'>#" "$XML"
