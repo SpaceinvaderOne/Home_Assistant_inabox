@@ -7,6 +7,7 @@ start() {
         ./unraid.sh  
     else
         rm -f /config/*.xml
+        rm -f /config/*.txt
         rm -f /config/Hassio_2.png
         rm -rf /config/run
         rm -rf /config/urlscrape
