@@ -463,6 +463,41 @@ definevm() {
     fi
 }
 
+
+check_version() {
+    # check if WHATVERSION exists and equals 4
+    if [[ "${WHATVERSION}" == "2" ]]; then
+        echo "Version check passed. Continuing..."
+    else
+        echo "The version you are using is HomeAssistant_inabox version 2, but your Docker template doesn't match this version."
+        echo ""
+        echo "You must remove the Docker template, then reinstall the container."
+        echo
+        echo "To do this, goto the Docker tab, click 'HomeAssistant_inabox' then click 'Remove'. This removes the container."
+        echo "Now with the container removed, you can remove the template."
+        echo ""
+        echo "Next, click on the 'Apps' tab. On the left, click 'Previous Apps' and look for 'HomeAssistant_inabox'."
+        echo "Click 'Actions', then 'Remove from Previous Apps'."
+        echo "Now you can search for 'HomeAssistant_inabox' and reinstall it."
+        echo "It will install with the most up-to-date template."
+        echo ""
+
+        echo "Exiting in 20 seconds..."
+
+          #  send a notification
+            chroot /host /usr/bin/php /usr/local/emhttp/webGui/scripts/notify \
+                -e "HomeAssistant_inabox Container" \
+                -s "The Template for HomeAssistant_inabox needs updating" \
+                -d "View the container logs to show you how" \
+                -i "warning" \
+               
+
+        sleep 20
+        exit 0 # Exiting the whole script
+    fi
+}
+
+
 icon() {
     ICON_SOURCE="/config/Hassio_2.png"
     ICON_DESTINATION="/icons/Hassio_2.png"
@@ -487,7 +522,7 @@ icon() {
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-
+check_version
 collect_info
 icon
 autoinstall
