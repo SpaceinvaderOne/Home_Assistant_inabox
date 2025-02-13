@@ -44,7 +44,7 @@ HomeAssistant_inabox relies on a few essential variables that need to be set thr
 
 3. **`Appdata Location`**  
    - **Description:** Set the path where HomeAssistant_inabox stores its appdata and configuration files.  
-   - **Default:** `/mnt/user/appdata/homeassistantinabox/`  
+   - **Default:** `/mnt/user/appdata/HomeAssistant_inabox/`  
    - **Purpose:** Specifies where the container’s internal configuration and scripts are stored.
 
 4. **`Keep VM Running`**  
