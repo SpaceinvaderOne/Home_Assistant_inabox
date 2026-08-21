@@ -1,0 +1,22 @@
+<nav id="rail" aria-label="Setup steps"{% if rail_oob %} hx-swap-oob="true"{% endif %}>
+  <div class="brand">
+    <span class="brand-name">Home Assistant</span>
+    <span class="brand-sub">in a box</span>
+  </div>
+  {# Plan 7: persistent, on every step, always visible. A plain href -- a
+     real browser navigation to GET / -- not an htmx swap: GET / already IS
+     the hub decision (status panel, an in-progress activity, or welcome;
+     see app.web.main.index()'s own comment), so this reaches "the same
+     content the front door would give" by construction, and never resets
+     SESSION, stops a watch, or cancels an install -- it is a read-only GET,
+     nothing else. #}
+  <a class="home-link" href="/">Home</a>
+  <ol class="steps">
+    {% for key, label in steps %}
+    <li class="step {% if key == current %}is-current{% elif key in done %}is-done{% endif %}" data-step="{{ key }}">
+      <span class="step-num">{{ loop.index }}</span>
+      <span class="step-label">{{ label }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</nav>

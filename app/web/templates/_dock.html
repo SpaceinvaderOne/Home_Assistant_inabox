@@ -1,0 +1,49 @@
+<section id="dock"{% if not install_busy %} class="is-collapsed"{% endif %} aria-label="Activity log">
+  <header class="dock-bar">
+    <button class="dock-toggle" type="button" id="dock-toggle">
+      Activity
+    </button>
+    <span class="dock-status" id="dock-status">idle</span>
+  </header>
+  <div class="dock-body" id="dock-lines"></div>
+</section>
+<script>
+  (function () {
+    var dock = document.getElementById('dock');
+    var toggle = document.getElementById('dock-toggle');
+    var lines = document.getElementById('dock-lines');
+    var status = document.getElementById('dock-status');
+
+    // Sticky manual collapse: once the user closes the dock by hand, the next
+    // install event must not force it back open underneath them. A manual
+    // *expand* is not sticky against anything -- there is no auto-collapse to
+    // fight -- so it simply leaves the flag clear. Starts false even when the
+    // page loaded collapsed (the idle default, not a user's choice) so the
+    // very first event of a *new* install still opens the dock.
+    var userCollapsed = false;
+
+    toggle.addEventListener('click', function () {
+      dock.classList.toggle('is-collapsed');
+      userCollapsed = dock.classList.contains('is-collapsed');
+    });
+
+    function openUnlessUserClosedIt() {
+      if (!userCollapsed) {
+        dock.classList.remove('is-collapsed');
+      }
+    }
+
+    var source = new EventSource('/events');
+    source.onopen = function () {
+      status.textContent = 'connected';
+      openUnlessUserClosedIt();
+    };
+    source.onmessage = function (e) {
+      lines.insertAdjacentHTML('beforeend', e.data);
+      lines.scrollTop = lines.scrollHeight;
+      status.textContent = 'live';
+      openUnlessUserClosedIt();
+    };
+    source.onerror = function () { status.textContent = 'disconnected'; };
+  })();
+</script>

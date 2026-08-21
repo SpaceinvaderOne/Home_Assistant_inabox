@@ -1,0 +1,92 @@
+<h1>Home Assistant</h1>
+
+{# Plan 7: one banner, one activity at a time -- the container runs one
+   wizard. Computed live in routes_status.status_context (see
+   _activity_banner's own docstring for the priority order and why the
+   wizard-parked clause is not simply `SESSION.version`), so this is never
+   stale and never shown alongside the ordinary VM list's own claims. #}
+{% if banner %}
+<div class="banner" id="status-activity-banner">
+  <p>
+    {% if banner.kind == "wizard" %}
+    Setup in progress: <strong>{{ banner.vm_name }}</strong> — continue where you left off.
+    {% elif banner.kind == "installing" %}
+    Installing <strong>{{ banner.vm_name }}</strong> — watch progress.
+    {% elif banner.kind == "firstboot" %}
+    <strong>{{ banner.vm_name }}</strong> is starting up — watch first boot.
+    {% endif %}
+  </p>
+  <a class="btn" hx-get="/step/{{ banner.step_key }}" hx-target="#content">
+    {%- if banner.kind == "wizard" %}Continue setup
+    {%- elif banner.kind == "installing" %}Watch progress
+    {%- else %}Watch first boot
+    {%- endif %}
+  </a>
+</div>
+{% endif %}
+
+{% if vms %}
+<p class="lead">
+  {% if vms|length == 1 %}
+  This is the Home Assistant VM this container found on your server, read fresh just now.
+  {% else %}
+  These are the Home Assistant VMs this container found on your server, read fresh just now.
+  {% endif %}
+</p>
+
+{# Spec §7.1: "if a second VM is ticked, warn plainly; do not block" -- a
+   test instance on its own VLAN is a legitimate reason to want this, so
+   this never refuses the second checkbox, only says why it might matter.
+   Recomputed on every render from live watcher state, never a one-shot
+   message tied to whichever POST happened to trip it. #}
+{% if multiple_watched %}
+<div class="warning" id="status-multiple-watched">
+  <p class="kicker">WORTH KNOWING</p>
+  <p>
+    <strong>More than one Home Assistant VM here is set to be kept running.</strong>
+    If these are not deliberately separate installs -- a test instance on its own VLAN,
+    say -- two live Home Assistants can fight over the same devices: both claim
+    <code>homeassistant.local</code>, and a shared Zigbee or Z-Wave stick means duplicate
+    automations firing from two controllers at once.
+  </p>
+</div>
+{% endif %}
+
+<ul class="review" id="status-vms">
+  {% for vm in vms %}
+  {% include "_status_vm.html" %}
+  {% endfor %}
+</ul>
+
+<form class="watcher-interval" hx-post="/watcher/interval" hx-target="#content" hx-swap="innerHTML">
+  <label for="watcher-interval-minutes">Check watched VMs every</label>
+  <input type="number" id="watcher-interval-minutes" name="minutes"
+         min="1" max="60" value="{{ watcher_interval }}">
+  <span>minutes</span>
+  <button class="btn" type="submit">Save</button>
+</form>
+{% else %}
+{# Not the normal way to arrive here -- GET / only ever lands on this page
+   once a confirmed VM is known -- but /step/status is directly reachable
+   (a bookmark, a reload) and the server's own state can genuinely have
+   moved on since: the VM renamed, its disk changed, or discovery simply no
+   longer confirming it. Say that plainly rather than render an empty list. #}
+<p class="lead">
+  This container isn't aware of a Home Assistant VM on this server right now.
+</p>
+{% endif %}
+
+<p class="lead">
+  {% if vms %}
+  Want to set up another Home Assistant VM?
+  {% else %}
+  Want to set up a Home Assistant VM?
+  {% endif %}
+</p>
+<div class="actions">
+  <form hx-post="/another-vm" hx-target="#content" hx-swap="innerHTML">
+    <button class="btn btn-primary" type="submit">
+      {{ "Install another VM" if vms else "Install a VM" }}
+    </button>
+  </form>
+</div>

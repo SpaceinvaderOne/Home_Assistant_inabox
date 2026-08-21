@@ -1,0 +1,46 @@
+{% if not watching %}
+{# No watch is running, so there is no VM to hand over. Everything below this
+   branch names `vm_name`, which after "Start another VM" is the *next*
+   install's default name -- a VM that has never existed. Rendering the hand-off
+   for it would say "the Home Assistant VM is still coming up" about nothing at
+   all. Reachable without typing a URL: a browser Back/Forward to the history
+   entry the first-boot panel's own link leaves behind. #}
+<h1>Nothing to hand over</h1>
+<p class="lead">
+  This is where a freshly-installed Home Assistant VM gets handed over to you, and there isn't
+  one being watched right now -- either nothing has been installed yet, or you chose to start
+  another VM and this page let the last one go. It has no address to offer you and nothing to
+  check, so it isn't going to guess at either.
+</p>
+<p class="lead">
+  Anything installed earlier is untouched and still running; Unraid's own VM manager lists it,
+  and its "Open WebUI" link still points at it.
+</p>
+<div class="actions">
+  <a class="btn btn-primary" href="/">Back to the start</a>
+</div>
+{% else %}
+<div id="ready-live" hx-get="/ready/state" hx-trigger="load, every 2s" hx-swap="innerHTML">
+  {% include "_ready_live.html" %}
+</div>
+
+<p class="lead">
+  It's safe to close this tab at any point -- Home Assistant's own onboarding runs entirely in
+  the tab the button above opens, not here. This page only watches and mirrors its progress.
+</p>
+
+<p class="lead">
+  Want to set up a second Home Assistant VM? Start another one below --
+  <strong>{{ vm_name }}</strong> keeps running throughout, exactly as it is now.
+</p>
+<div class="actions">
+  {# Plan 7, change #2: "Ready gains 'Back to home' alongside 'Start another
+     VM'." Home keeps the watch and this session intact -- it's the same
+     plain href="/" every step's rail carries (see _rail.html) -- while
+     "Start another VM" stays the explicit reset it already was. #}
+  <a class="btn btn-primary" href="/">Back to home</a>
+  <form hx-post="/another-vm" hx-target="#content" hx-swap="innerHTML">
+    <button class="btn" type="submit">Start another VM</button>
+  </form>
+</div>
+{% endif %}

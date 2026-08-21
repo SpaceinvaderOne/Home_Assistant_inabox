@@ -1,0 +1,54 @@
+[project]
+name = "homeassistant-inabox"
+version = "3.0.0.dev0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
+    # Starlette's Request.form() -- used by the wizard's POST /step/{key} --
+    # shells out to this for both multipart and urlencoded bodies alike, and
+    # raises an AssertionError at request time if it is missing. Pinned to
+    # what's installed and verified working in venv/ (checked with `pip
+    # show`), matching the convention the [dev] extra below already follows.
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+# Nothing under app/ imports any of these; they exist only to run and check the
+# test suite. Versions pinned to what's actually installed and verified working
+# in venv/ (checked with `pip show`), not guessed.
+dev = [
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "ruff>=0.16",
+    # starlette's TestClient (used by our test suite) needs an httpx transport
+    # in the fastapi/starlette versions resolved here; not in the original Task 1
+    # brief, added because `venv/bin/pytest tests/web` cannot import
+    # fastapi.testclient without it. starlette prefers a package called
+    # "httpx2", but that name is unfamiliar and unverified, so we pin to the
+    # well-known "httpx" instead; starlette falls back to it with a harmless
+    # deprecation warning. Test-only — nothing in app/ imports httpx directly.
+    "httpx>=0.28",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+markers = [
+    "hardware: requires a live Unraid server; not run in CI",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Documentation quotes external source verbatim (Home Assistant, Unraid, libvirt).
+# ruff formats Python code fences in markdown, which would rewrite those quotes.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

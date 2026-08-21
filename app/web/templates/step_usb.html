@@ -1,0 +1,71 @@
+<h1>USB devices</h1>
+<p class="lead">
+  Pass a USB device straight through to this VM -- a Zigbee or Z-Wave stick, for example.
+  Entirely optional: leave everything unticked if you don't have one, or aren't ready to choose.
+</p>
+
+{% if options and not flash_identity_known %}
+{# Spec 5.4's safety requirement is that the Unraid boot flash is never
+   offered here, and the one way that rule fails is silently: with no
+   flashGUID to compare against, app.usbdevices cannot identify the boot
+   device at all, so it stays in the list looking like any other stick.
+   Saying nothing would be this page asserting a guarantee it is not
+   currently able to make. It cannot name the device -- if it could, it
+   would have excluded it -- so it names the risk instead. #}
+<div class="warning" id="usb-flash-unknown">
+  <p class="warning-kicker">Check before you tick</p>
+  <p>This container couldn't read which USB device your server boots from, so it can't
+  leave it out of the list below. Every device here is shown as found, and one of them may
+  be your Unraid boot flash.</p>
+  <p>Passing the boot flash through to a VM takes the server down, so don't tick a device
+  unless you know what it is. Anything you recognise as your own dongle is safe to pass
+  through as normal.</p>
+</div>
+{% endif %}
+
+<form hx-post="/step/usb" hx-target="#content" hx-swap="innerHTML">
+  {% if options %}
+  <div class="options">
+    {% for option in options %}
+    <label class="option {{ 'is-selected' if option.checked else '' }}">
+      <input type="checkbox" name="usb" value="{{ option.bus_port }}" {% if option.checked %}checked{% endif %}>
+      <span class="option-body">
+        <span class="option-title">{{ option.display_name }}</span>
+        <span class="option-meta">
+          {{ option.vendor_id }}:{{ option.product_id }}{% if option.serial %} &middot; serial {{ option.serial }}{% endif %}
+        </span>
+        {% if option.badge %}
+        <span class="option-meta">{{ option.badge }}</span>
+        {% endif %}
+        {% if option.note %}
+        <span class="option-meta">{{ option.note }}</span>
+        {% endif %}
+        {% if option.hint %}
+        <span class="option-meta option-hint">{{ option.hint }}</span>
+        {% endif %}
+        {% if option.auto_setup_note %}
+        <span class="option-meta">
+          Home Assistant will likely offer to set this up automatically after onboarding.
+        </span>
+        {% endif %}
+        {% if option.zigbee_interference_note %}
+        <span class="option-meta">
+          USB 3.0 ports emit 2.4 GHz interference that can cause a flaky Zigbee mesh -- a short
+          extension cable usually fixes it.
+        </span>
+        {% endif %}
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="lead">No USB devices were found. Plug one in, then rescan below.</p>
+  {% endif %}
+
+  <div class="actions">
+    <button class="btn" type="button" hx-get="/step/usb" hx-target="#content" hx-swap="innerHTML">
+      Rescan
+    </button>
+    <button class="btn btn-primary" type="submit">Continue</button>
+  </div>
+</form>

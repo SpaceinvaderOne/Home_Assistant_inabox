@@ -1,0 +1,197 @@
+<h1>Installing Home Assistant</h1>
+<p class="lead">
+  This runs in the background -- the download and decompress steps take the longest.
+  Full detail, including any error, is in the Activity log below.
+</p>
+
+<ul class="checks" id="install-steps">
+  {% for step in install_steps %}
+  {% set is_failed = state.failed_step == step %}
+  {% set is_done = step in state.completed_steps %}
+  {% set is_current = state.current_step == step %}
+  <li class="check {{ 'is-bad' if is_failed else 'is-ok' if is_done else 'is-progress' if is_current else '' }}" data-step="{{ step }}">
+    <span class="check-mark">{{ '✕' if is_failed else '✓' if is_done else '→' if is_current else '·' }}</span>
+    <span class="check-detail">{{ step }}</span>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if state.failed_step %}
+<div class="warning">
+  <p class="kicker">PROBLEM</p>
+  <p>
+    <strong>The install stopped at "{{ state.failed_step }}".</strong>
+    See the Activity log below for why, fix it, then go back to Review and try again.
+  </p>
+</div>
+<div class="actions">
+  <button class="btn" hx-get="/step/review" hx-target="#content">Back to review</button>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  var items = document.querySelectorAll('#install-steps .check');
+  var byStep = {};
+  items.forEach(function (li) { byStep[li.getAttribute('data-step')] = li; });
+
+  // completed/current/failed, kept in sync with app/web/routes_install.py's
+  // InstallRunner -- either read whole from /install/state, or replayed
+  // incrementally from the same start/ok/fail events the server used to
+  // build it in the first place (see reduce() below).
+  var completed = [];
+  var current = null;
+  var failed = null;
+
+  function render() {
+    items.forEach(function (li) {
+      var step = li.getAttribute('data-step');
+      var mark = li.querySelector('.check-mark');
+      li.classList.remove('is-ok', 'is-bad', 'is-progress');
+      if (failed === step) {
+        li.classList.add('is-bad');
+        mark.textContent = '✕';
+      } else if (completed.indexOf(step) !== -1) {
+        li.classList.add('is-ok');
+        mark.textContent = '✓';
+      } else if (current === step) {
+        li.classList.add('is-progress');
+        mark.textContent = '→';
+      } else {
+        mark.textContent = '·';
+      }
+    });
+  }
+
+  // installer.py's TERMINAL_STEP, handed down by the server (see
+  // routes_install.py's installing_context()) rather than hand-copied here
+  // as a JS string literal: a by-hand copy is exactly the drift risk the
+  // STEPS de-duplication elsewhere in this diff exists to avoid -- if the
+  // real constant ever changed, a stale literal would keep "working" (no
+  // error) while silently never matching the terminal event again.
+  var TERMINAL_STEP = '{{ terminal_step }}';
+
+  // Moves the page on -- automatically, not on a click, because the user
+  // must never be left staring at a finished checklist wondering what
+  // happens next. Guarded so the three signals that can each trigger this
+  // (first-paint poll(), a live SSE message, and the poll fallback below)
+  // can't each fire their own redundant navigation.
+  var advanced = false;
+  function advanceToFirstBoot() {
+    if (advanced) return;
+    // htmx.min.js is loaded `defer` from base.html's <head>, which runs
+    // after the document is parsed -- later than a plain inline <script>
+    // like this one. On a full-page GET /step/installing landing after the
+    // install already finished, first-paint poll() can have its
+    // /install/state response back before htmx has executed, and calling
+    // htmx.ajax(...) then throws a ReferenceError. `advanced` is set only
+    // once the call actually happens, not before: latching it true on a
+    // call that never ran would permanently block every later attempt
+    // (SSE and the 1s poll fallback are both guarded by this same flag),
+    // which is exactly the stopped-page state this whole page exists to
+    // prevent. Retried shortly instead of giving up -- htmx is normally
+    // ready within milliseconds of the page parsing.
+    if (typeof htmx === 'undefined') {
+      window.setTimeout(advanceToFirstBoot, 50);
+      return;
+    }
+    advanced = true;
+    htmx.ajax('GET', '/step/firstboot', {target: '#content', swap: 'innerHTML'});
+  }
+
+  function apply(state) {
+    completed = state.completed_steps || [];
+    current = state.current_step || null;
+    failed = state.failed_step || null;
+    render();
+    // /install/state carries the terminal step in completed_steps as soon
+    // as the install finishes (InstallRunner.tracking_emit appends every
+    // "ok" event's step, and the terminal event's step is TERMINAL_STEP).
+    // Checked here too, not just in the live SSE handler below: this is
+    // also what first-paint poll() sees on a reload that lands after the
+    // install already finished, and -- critically -- what the poll
+    // fallback below sees if SSE is unavailable for the rest of this
+    // page's life (a buffering reverse proxy, say). Without this, a
+    // finished checklist under a broken SSE connection is a page that has
+    // stopped changing forever, with no click to get past it.
+    if (completed.indexOf(TERMINAL_STEP) !== -1) {
+      advanceToFirstBoot();
+    }
+  }
+
+  // Applies one Event's step/status the same way the server's tracking_emit
+  // does: start -> in progress, ok -> completed (and stays completed), fail
+  // -> failed (and stops being "in progress"). Steps outside install_steps
+  // (the wizard's own "installing" key, the installer's terminal "install"
+  // event) simply have no row to update.
+  function reduce(step, status) {
+    if (!(step in byStep)) return;
+    if (status === 'start') {
+      current = step;
+    } else if (status === 'ok') {
+      if (completed.indexOf(step) === -1) completed.push(step);
+      if (current === step) current = null;
+    } else if (status === 'fail') {
+      failed = step;
+      if (current === step) current = null;
+    } else {
+      return;
+    }
+    render();
+  }
+
+  function poll() {
+    fetch('/install/state')
+      .then(function (r) { return r.json(); })
+      .then(apply)
+      // Deliberately still doesn't rethrow -- a failed poll is often
+      // transient (the page unloading, a network hiccup) and must not break
+      // this loop. But silently swallowing *everything* here, with no trace
+      // left anywhere, is exactly how a ReferenceError thrown inside
+      // apply() -> advanceToFirstBoot() (htmx not ready yet, see above)
+      // went unnoticed until review caught it: logged instead, so a real
+      // bug surfaces somewhere rather than vanishing outright.
+      .catch(function (err) {
+        if (window.console && console.error) console.error('poll() failed:', err);
+      });
+  }
+
+  // First paint: whatever is already true (a reload mid-install, or one that
+  // finished before this page ever loaded) before any live event arrives.
+  poll();
+
+  // Liveness is driven by the same SSE stream the Activity dock already
+  // opened, not by polling: a 2-second poll can miss a step that starts and
+  // finishes inside that window, making a fast step look like it never
+  // happened. /events carries data-step/data-status on every line for
+  // exactly this. Polling is kept only as a reconnect fallback -- while SSE
+  // is down, /install/state is the only way this list can still catch up.
+  var pollTimer = null;
+  function startPollFallback() {
+    if (pollTimer === null) pollTimer = window.setInterval(poll, 1000);
+  }
+  function stopPollFallback() {
+    if (pollTimer !== null) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  var source = new EventSource('/events');
+  source.onopen = stopPollFallback;
+  source.onmessage = function (e) {
+    var scratch = document.createElement('div');
+    scratch.innerHTML = e.data;
+    var node = scratch.firstElementChild;
+    if (!node) return;
+    var step = node.getAttribute('data-step');
+    var status = node.getAttribute('data-status');
+    if (step === TERMINAL_STEP && status === 'ok') {
+      advanceToFirstBoot();
+      return;
+    }
+    if (step && status) reduce(step, status);
+  };
+  source.onerror = startPollFallback;
+})();
+</script>

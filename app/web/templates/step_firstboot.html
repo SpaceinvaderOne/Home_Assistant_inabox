@@ -1,0 +1,19 @@
+<h1>First boot</h1>
+{% if watching %}
+<p class="lead">
+  The install itself is done. Home Assistant OS is now starting up inside its VM --
+  this can take several minutes, longer on a slower array. There's nothing to click;
+  this page updates itself as each stage is actually observed.
+</p>
+
+<div id="firstboot-live" hx-get="/firstboot/state" hx-trigger="load, every 2s" hx-swap="innerHTML">
+  {% include "_firstboot_milestones.html" %}
+</div>
+{% else %}
+{# No watch is running, so there is no boot to narrate and no checklist to show:
+   both would be about a VM this page has never observed. The partial says the
+   one true thing, and is included rather than repeated here so the tab that is
+   still polling /firstboot/state every 2s reads exactly the same words. Nothing
+   polls from this branch -- there is nothing to poll for. #}
+{% include "_firstboot_milestones.html" %}
+{% endif %}

@@ -1,0 +1,16 @@
+<h1>Before we start</h1>
+<p class="lead">Checking your server. Everything below was read from it just now.</p>
+
+<ul class="checks">
+  {% for check in checks %}
+  <li class="check {{ 'is-ok' if check.ok else 'is-bad' }}">
+    <span class="check-mark">{{ '✓' if check.ok else '✕' }}</span>
+    <span class="check-detail">{{ check.detail }}</span>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="actions">
+  <button class="btn btn-primary" hx-get="/step/{{ next_key }}" hx-target="#content"
+          {% if not all_ok %}disabled{% endif %}>Get started</button>
+</div>

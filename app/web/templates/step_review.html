@@ -1,0 +1,92 @@
+<h1>Review</h1>
+<p class="lead">Check everything below, then install. Nothing is written to your server until you click Install.</p>
+
+<ul class="review">
+  <li class="review-item">
+    <div>
+      <p class="review-label">Name</p>
+      <p class="review-value">{{ settings.name }}</p>
+    </div>
+    <a class="review-change" hx-get="/step/placement" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">Version</p>
+      <p class="review-value">{{ release.version }}</p>
+    </div>
+    <a class="review-change" hx-get="/step/version" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">Network</p>
+      <p class="review-value">{{ settings.network.name }}</p>
+    </div>
+    <a class="review-change" hx-get="/step/placement" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">MAC address</p>
+      <p class="review-value">{{ settings.mac }}</p>
+    </div>
+    <a class="review-change" hx-get="/step/placement" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">vCPUs</p>
+      <p class="review-value">{{ settings.vcpus }}</p>
+    </div>
+    <a class="review-change" hx-get="/step/resources" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">Memory</p>
+      <p class="review-value">{{ settings.memory_mib }} MiB</p>
+    </div>
+    <a class="review-change" hx-get="/step/resources" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">Disk</p>
+      <p class="review-value">{{ size_gib }} GiB</p>
+    </div>
+    <a class="review-change" hx-get="/step/resources" hx-target="#content">Change</a>
+  </li>
+  <li class="review-item">
+    <div>
+      <p class="review-label">USB devices</p>
+      <p class="review-value">
+        {% if settings.usb_devices %}
+        {% for device in settings.usb_devices -%}
+        {{ device.name }} ({{ device.vendor_id }}:{{ device.product_id }}){% if not loop.last %}, {% endif %}
+        {%- endfor %}
+        {% else %}
+        None
+        {% endif %}
+      </p>
+    </div>
+    <a class="review-change" hx-get="/step/usb" hx-target="#content">Change</a>
+  </li>
+</ul>
+
+{% if watch_step is defined %}
+<div class="warning" id="review-watching">
+  <p class="kicker">WORTH KNOWING</p>
+  <p><strong>Installing again won't start anything right now.</strong> This wizard is already
+  watching <strong>{{ vm_name }}</strong> come up from the install you ran earlier, and it can
+  only follow one VM at a time.</p>
+  <p>Go back to <a href="/step/{{ watch_step }}">the {{ watch_label | lower }} step</a> to see how
+  it's getting on, or start another VM below -- <strong>{{ vm_name }}</strong> keeps running
+  throughout, and Unraid's own VM manager lists it either way.</p>
+</div>
+<div class="actions">
+  <form hx-post="/another-vm" hx-target="#content" hx-swap="innerHTML">
+    <button class="btn" type="submit">Start another VM</button>
+  </form>
+</div>
+{% endif %}
+
+<form hx-post="/install" hx-target="#content" hx-swap="innerHTML">
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Install Home Assistant</button>
+  </div>
+</form>

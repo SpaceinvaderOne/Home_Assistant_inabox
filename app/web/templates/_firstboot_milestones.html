@@ -1,0 +1,78 @@
+{% if not watching %}
+{# Nothing is being watched. Every milestone below would render unreached, which
+   is what a boot that has only just begun looks like too -- so showing the list
+   at all would imply a VM is starting up. It is not: either nothing has started
+   one yet, or "Start another VM" let the last one go. Say that, and stop. #}
+<div class="warning" id="firstboot-no-watch">
+  <p class="kicker">WORTH KNOWING</p>
+  <p><strong>No VM is being watched right now.</strong> This page follows one Home Assistant VM
+  through its first boot, and nothing has started one. That is what you see before an install
+  gets that far, and after "Start another VM" has let the previous one go.</p>
+  <p>Nothing has gone wrong here, and nothing already installed has been touched -- a VM this
+  page watched earlier is still running exactly as it was, and Unraid's own VM manager lists it.
+  There is simply nothing left for this page to report.</p>
+  <div class="actions">
+    <a class="btn btn-primary" href="/">Back to the start</a>
+  </div>
+</div>
+{% else %}
+{% set first_unreached = (milestones | rejectattr('reached') | list | first) %}
+<ul class="checks" id="firstboot-milestones">
+  {% for m in milestones %}
+  {% set is_current = first_unreached and m.key == first_unreached.key %}
+  <li class="check {{ 'is-ok' if m.reached else 'is-progress' if is_current else '' }}">
+    <span class="check-mark">{{ '✓' if m.reached else '→' if is_current else '·' }}</span>
+    <span class="check-detail">
+      {{ m.label }}{% if m.reached %} <span class="check-elapsed">{{ m.seconds | int }}s</span>{% endif %}
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if unseen %}
+<div class="warning" id="firstboot-unseen">
+  <p class="kicker">PROBLEM</p>
+  <p><strong>The install completed</strong>, but this page hasn't been able to see the VM's
+  state at all in several minutes -- not even that it's running.</p>
+  <p>This usually means libvirt isn't reachable from this container right now, or the VM
+  didn't actually start. Check the Activity log below for what it's seen, and look directly
+  at Unraid's own VM manager (VMs &rarr; {{ vm_name }}) to see what's really going on.</p>
+</div>
+{% elif stalled %}
+<div class="warning" id="firstboot-stall">
+  <p class="kicker">WORTH KNOWING</p>
+  <p><strong>The install succeeded.</strong> Home Assistant's VM is running, but its
+  guest tools haven't answered in a while, so this page has nothing new to report yet.</p>
+  <p>This is usually just a slow first boot on a busy array, not a failure. You can look
+  directly at what the VM is doing by opening its console from Unraid's own VM manager
+  (VMs &rarr; {{ vm_name }} &rarr; Console).</p>
+</div>
+{% elif no_web %}
+<div class="warning" id="firstboot-no-web">
+  <p class="kicker">WORTH KNOWING</p>
+  <p><strong>The VM is running and its guest tools are answering</strong>{% if address %}, and it
+  has the address <strong>{{ address }}</strong>{% endif %} -- but Home Assistant itself still
+  hasn't answered us, and it has been a while now.</p>
+  <p>We can't tell from here which of two things that is. Home Assistant OS downloads the rest of
+  itself the first time it boots, so on a slow connection it genuinely does take longer than this.
+  It can equally mean nothing can reach the VM from here: if you chose the NAT network
+  (virbr0) rather than a bridge, that is the most likely explanation, and it stops this page
+  reaching it however long you wait.</p>
+  {% if address %}
+  <p>Two things you can do right now. Try Home Assistant yourself at
+  <a href="{{ address_url }}" target="homeassistant">{{ address_url }}</a> -- your
+  browser may well have a route to the VM that this container doesn't. And you can carry on to the
+  last step, which only needs the VM's address, and we have that:</p>
+  <div class="actions">
+    <a class="btn btn-primary" href="/step/ready">Carry on to the last step</a>
+  </div>
+  {% endif %}
+  <p>Either way, opening the VM's console from Unraid's own VM manager (VMs &rarr; {{ vm_name }}
+  &rarr; Console) shows what it is actually doing.</p>
+</div>
+{% endif %}
+
+{% if web_reached %}
+<div hx-get="/step/ready" hx-trigger="load" hx-target="#content" hx-swap="innerHTML"></div>
+{% endif %}
+{% endif %}

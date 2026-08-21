@@ -1,0 +1,21 @@
+<h1>That VM is already on its way</h1>
+<p class="lead">
+  Nothing has been started. This wizard is already watching <strong>{{ vm_name }}</strong> come up
+  from the install you ran a moment ago, and it can only follow one VM at a time -- installing
+  again now would leave that VM running with nothing here keeping track of it.
+</p>
+
+<div class="actions">
+  <a class="btn btn-primary" href="/step/{{ watch_step }}">Back to the {{ watch_label | lower }} step</a>
+</div>
+
+<p class="lead">
+  If you want to set up a second Home Assistant VM, start another one below -- your existing VM
+  keeps running throughout, and Unraid's own VM manager lists it either way.
+</p>
+
+<div class="actions">
+  <form hx-post="/another-vm" hx-target="#content" hx-swap="innerHTML">
+    <button class="btn" type="submit">Start another VM</button>
+  </form>
+</div>

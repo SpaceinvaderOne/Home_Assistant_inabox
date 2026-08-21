@@ -1,0 +1,78 @@
+{% if not watching %}
+{# No watch is running: there is no VM whose onboarding this could be mirroring.
+   Without this branch the poll below falls straight through to "hasn't asked
+   yet", which is a statement about a Home Assistant that does not exist -- and
+   a tab left open on the ready step goes on fetching this fragment every 2s
+   long after "Start another VM" cleared the watch. #}
+<p class="lead" id="ready-no-watch">
+  There's no Home Assistant VM being watched right now, so there's nothing for this page to
+  mirror. It isn't checking on anything, and it isn't holding anything back either.
+</p>
+{% elif not onboarding.reachable and not onboarding_asked %}
+{# "Not responding" is a claim about Home Assistant's health, and this page has
+   not asked it anything yet: no address to ask at, nothing yet listening on
+   either candidate port at that address, or the very first poll has not landed.
+   Say that instead -- it is the only thing actually known. #}
+<p class="lead" id="ready-not-asked">
+  This page hasn't asked Home Assistant anything yet --
+  {% if address %}nothing has answered on the VM's address ({{ address }}) so far, so there's
+  nowhere to put the question.{% else %}it doesn't have an address for the VM to ask at.{% endif %}
+  That says nothing about Home Assistant itself; the moment it answers, this page starts
+  mirroring its setup here automatically.
+</p>
+{% elif not onboarding.reachable %}
+<div class="warning" id="ready-unreachable">
+  {# The "last reported" clause may only be claimed when the rows below really are
+     the ones Home Assistant reported. Once `complete` is set, _mirrored_onboarding_state
+     shows every row ticked off the completion itself, which HA never sent row by row --
+     so that case says what was actually observed instead.
+
+     "Home Assistant is not responding" and "the address we had stopped answering" are
+     not the same claim -- Home Assistant Core 2026.8 moves off the port it served
+     onboarding on the moment onboarding finishes, and by the time this branch renders
+     this page has already tried resolving the address again (see
+     app.web.routes_firstboot.FirstBootRunner._ask/_reresolve) and still got nothing.
+     Naming what was actually tried, rather than diagnosing Home Assistant's health, is
+     the whole point of this paragraph. #}
+  <p><strong>Home Assistant is not responding right now.</strong> This page tried
+  {% if address %}{{ address }}{% else %}the VM's address{% endif %}, on both of the ports it
+  knows to check, and got nothing back{% if onboarding.complete %} -- though it had already
+  finished its own setup before it went quiet{% elif onboarding.steps %} -- the list below is
+  what it last reported{% endif %}.</p>
+  <p>This doesn't necessarily mean anything is wrong -- Home Assistant restarts itself partway
+  through its own onboarding, and this page already tried again once before saying so. If this
+  doesn't clear up in a minute or two, look directly at the VM from Unraid's own VM manager (VMs
+  &rarr; {{ vm_name }} &rarr; Console).</p>
+</div>
+{% elif onboarding.complete %}
+<p class="lead" id="ready-complete">
+  <strong>Home Assistant is all set up.</strong> Its own onboarding is finished in the tab you
+  opened -- there's nothing more to watch here.{% if webui_ok %} Unraid's own VM manager links
+  straight to Home Assistant too -- look for {{ vm_name }} in the VMs list.{% endif %}
+</p>
+{% elif onboarding.steps %}
+<p class="lead">
+  Home Assistant's own setup is under way in the tab you opened. This list mirrors its
+  progress as it happens -- we're only watching, not driving it.
+</p>
+{% else %}
+<p class="lead" id="ready-unknown">
+  Home Assistant is reachable, but hasn't told this page where it is in its own setup yet.
+  That's expected right after it first answers -- this page keeps checking automatically, so
+  it should sort itself out shortly. Either way, its own onboarding continues in the tab you
+  opened, not here.
+</p>
+{% endif %}
+
+{% if watching and onboarding.steps %}
+{% set first_unreached = (onboarding.steps | rejectattr('done') | list | first) %}
+<ol class="checks" id="onboarding">
+  {% for step in onboarding.steps %}
+  {% set is_current = onboarding.reachable and first_unreached and step.key == first_unreached.key %}
+  <li class="check {{ 'is-ok' if step.done else 'is-progress' if is_current else '' }}">
+    <span class="check-mark">{{ '✓' if step.done else '→' if is_current else '·' }}</span>
+    <span class="check-detail">{{ step.label }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}

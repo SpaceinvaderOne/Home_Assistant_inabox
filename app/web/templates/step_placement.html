@@ -1,0 +1,77 @@
+<h1>Storage &amp; network</h1>
+<p class="lead">Name the VM and pick the network its virtual network card attaches to.</p>
+
+{% if bridge_error %}
+<div class="warning">
+  <p class="kicker">PROBLEM</p>
+  <p><strong>Could not read the host's networks:</strong> {{ bridge_error }}</p>
+</div>
+{% endif %}
+
+<form hx-post="/step/placement" hx-target="#content" hx-swap="innerHTML">
+  <div class="field">
+    <label for="name">VM name</label>
+    <input id="name" type="text" name="name" value="{{ name }}">
+    {% if errors.name %}<p class="field-error">{{ errors.name }}</p>{% endif %}
+    <p class="lead">This becomes the VM's folder name on your domains share.</p>
+  </div>
+
+  {% if name_conflict %}
+  <div class="warning">
+    <p class="kicker">CAUTION</p>
+    <p>
+      <strong>A VM named "{{ name }}" already exists.</strong>
+      Installing under this name will fail when the VM is defined. Choose a different name above.
+    </p>
+  </div>
+  {% endif %}
+
+  <div class="options">
+    {% for bridge in bridges %}
+    <label class="option {{ 'is-selected' if bridge.name == selected else '' }}">
+      <input type="radio" name="bridge" value="{{ bridge.name }}"
+             {% if bridge.name == selected %}checked{% endif %}>
+      <span class="option-body">
+        <span class="option-title">{{ bridge.name }}</span>
+        <span class="option-meta">
+          {{ bridge.kind }}{% if bridge.name == default_name %} &middot; Unraid default{% endif -%}
+          {%- if bridge.in_use_by %} &middot; already used by {{ bridge.in_use_by | join(', ') }}{% endif %}
+        </span>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  {% if errors.bridge %}<p class="field-error">{{ errors.bridge }}</p>{% endif %}
+
+  {% if nat_warning %}
+  <div class="warning">
+    <p class="kicker">CAUTION</p>
+    <p>
+      <strong>This is a NAT network.</strong> Home Assistant will be able to reach the internet,
+      but nothing else on your LAN will be able to reach Home Assistant, and its automatic
+      discovery of Chromecasts, Sonos, Hue bridges and ESPHome devices (mDNS/SSDP) does not cross
+      a NAT boundary, so none of them will be found.
+    </p>
+    <p>You can still choose this if this VM never needs to be reached from your network.</p>
+  </div>
+  <input type="hidden" name="confirm_nat" value="1">
+  {% endif %}
+
+  <div class="mac-panel">
+    <p class="mac-label">This VM's network card</p>
+    <p class="mac-value">{{ mac }}</p>
+    <p class="mac-hint">
+      Give this MAC address a fixed IP in your router's DHCP settings (sometimes called a
+      "static lease" or "DHCP reservation") before you finish installing. We recommend doing it
+      there rather than setting a static IP inside Home Assistant itself: a static IP configured
+      <em>inside</em> Home Assistant is applied by the very thing you would need network access to
+      reach -- get the subnet or gateway wrong on this headless VM, and the only way back in is
+      the VM's console. A router-side reservation carries none of that risk: DHCP keeps working
+      normally, and Home Assistant just always ends up with the same address.
+    </p>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Continue</button>
+  </div>
+</form>

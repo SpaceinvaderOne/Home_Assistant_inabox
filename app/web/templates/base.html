@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Assistant in a box</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    {% include "_rail.html" %}
+    <main id="content">
+      {% include content_template %}
+    </main>
+  </div>
+  {% include "_dock.html" %}
+  <script>
+    // htmx does not swap a response with a 4xx status, by design -- it treats
+    // it as an error and leaves the page exactly as it was. All three 409s
+    // this app returns (POST /install, when an install is already running or
+    // a VM is already being watched; and POST /another-vm, when an install is
+    // already running) are considered answers rendered as real pages, and
+    // someone who clicked a button and saw *nothing at all* happen has no way
+    // to tell a deliberate refusal from a broken button. Swap those, and only
+    // those: a 404 from a mistyped step URL is still an error and still must
+    // not be swapped in.
+    document.body.addEventListener('htmx:beforeSwap', function (e) {
+      if (e.detail.xhr.status === 409) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
+  </script>
+</body>
+</html>

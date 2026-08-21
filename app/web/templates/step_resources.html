@@ -1,0 +1,75 @@
+<h1>CPU &amp; memory</h1>
+<p class="lead">{{ physical }} cores / {{ threads }} threads available on this host.</p>
+
+<form hx-post="/step/resources" hx-target="#content" hx-swap="innerHTML">
+  <div class="field">
+    <label for="vcpus">vCPUs</label>
+    <input id="vcpus" type="number" name="vcpus" min="1" max="{{ max_vcpus }}" value="{{ vcpus }}">
+    {% if errors.vcpus %}<p class="field-error">{{ errors.vcpus }}</p>{% endif %}
+  </div>
+
+  <div class="field">
+    <label for="memory">Memory (MiB)</label>
+    <input id="memory" type="number" name="memory" min="{{ min_memory_mib }}" value="{{ memory_mib }}">
+    {% if errors.memory %}<p class="field-error">{{ errors.memory }}</p>{% endif %}
+  </div>
+
+  <div class="field">
+    <label for="disk">Disk (GiB)</label>
+    <input id="disk" type="number" name="disk" min="{{ min_disk_gib }}" value="{{ size_gib }}">
+    <p class="field-hint">
+      The Home Assistant image always ships as a 32 GiB disk, and we resize it up to whatever
+      you choose here so there's room for its history and recordings. The disk is sparse, so
+      asking for more costs nothing until Home Assistant actually uses it.
+    </p>
+    {% if errors.disk %}<p class="field-error">{{ errors.disk }}</p>{% endif %}
+  </div>
+
+  {% if overprovision_warning %}
+  <div class="warning">
+    <p class="kicker">CAUTION</p>
+    <p>
+      <strong>Warning:</strong> you're asking for more vCPUs ({{ vcpus }}) than this host has
+      threads for ({{ threads }}). Home Assistant will still install and run, but it will be
+      fighting everything else on the server for the same cores. Continue again to proceed
+      anyway, or lower the vCPU count above.
+    </p>
+  </div>
+  <input type="hidden" name="confirm_overprovision" value="1">
+  {% endif %}
+
+  <details class="disclosure" {% if pinned %}open{% endif %}>
+    <summary>Advanced: pin vCPUs to specific host cores</summary>
+    <p class="lead">
+      Floating -- the default, and what we recommend -- lets the host scheduler run this VM's
+      vCPUs on whichever physical core is free at the time. Home Assistant is bursty and mostly
+      single-threaded at its core, so it gains far more from having any free core to run on than
+      from owning a fixed pair. A VM pinned to specific cores cannot move away from contention: if
+      a parity check or a transcode is hammering those same cores, a pinned Home Assistant is
+      hammered right along with them, while a floating one just runs somewhere else. Pinning well
+      also needs to know this host's SMT (hyperthread) pairings and cache/CCX boundaries, which
+      most people have not measured. An earlier version of this container pinned every VM to host
+      cores 0 and 1 by default -- but core 0 is where the Unraid host OS itself runs, so that
+      pinned Home Assistant directly against the host's own workload.
+    </p>
+    <div class="options">
+      {% for core in cores %}
+      <label class="option">
+        <input type="checkbox" name="pin_core" value="{{ core.index }}"
+               {% if core.index in pinned_cores %}checked{% endif %}>
+        <span class="option-body">
+          <span class="option-title">
+            Core {{ core.index }}
+            {%- if core.kind == 'performance' %} (P-core){% elif core.kind == 'efficiency' %} (E-core){% endif %}
+          </span>
+          <span class="option-meta">thread{{ 's' if core.threads | length > 1 else '' }} {{ core.threads | join(', ') }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+  </details>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Continue</button>
+  </div>
+</form>

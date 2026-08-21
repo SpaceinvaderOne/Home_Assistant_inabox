@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>HomeAssistant_inabox_v3</Name>
+  <Repository>spaceinvaderone/ha_inabox:latest</Repository>
+  <Registry>https://hub.docker.com/repository/docker/spaceinvaderone/ha_inabox/general</Registry>
+  <Network>bridge</Network>
+  <MyMAC/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://forums.unraid.net/topic/176028-support-homeassistant_inabox</Support>
+  <Project>https://github.com/SpaceinvaderOne/Home_Assistant_inabox</Project>
+  <ReadMe>https://github.com/SpaceinvaderOne/Home_Assistant_inabox/blob/main/README.md</ReadMe>
+  <Overview>HomeAssistant_inabox installs Home Assistant OS as a virtual machine on your Unraid server through a short setup wizard - it does not run Home Assistant itself inside this container. Open this container's WebUI, pick a Home Assistant OS release and a few settings, and it creates the VM, downloads and attaches the disk, and hands you back a normal Unraid VM.&#13;
+&#13;
+Once a Home Assistant VM exists - whether this wizard created it or you already had one running - this container's WebUI becomes a small status panel instead of the wizard: it shows the VM's address, whether Home Assistant has answered there, and a Start button if the VM is stopped. If you stop or remove this container, the Home Assistant VM keeps running; it is managed by Unraid's own VM tab like any other virtual machine, not by this container.&#13;
+&#13;
+Keeping a VM running - an automatic restart if it stops unexpectedly, plus a notification - is opt-in per VM from the status panel and off by default; nothing is ever turned on for you.&#13;
+&#13;
+If you already run Home Assistant in a VM on this server, the wizard finds it by reading the VM's own disk rather than guessing from its name, and the status panel lists it alongside anything this container installs - there is no separate "adopt" step to click through.&#13;
+&#13;
+The wizard can also pass a USB device on this server through to the Home Assistant VM, for a Zigbee, Z-Wave or similar radio, and calls out devices it recognises as likely candidates rather than presenting a bare, unlabelled list.&#13;
+&#13;
+This needs direct access to your VM manager (libvirt), your Domains share, Docker's own socket and a handful of Unraid system paths in order to build and manage the VM correctly - that is expected and required, not a mistake in this template. It has no login of its own, so keep it on a trusted LAN rather than exposing it to the internet.</Overview>
+  <Category>HomeAutomation:</Category>
+  <WebUI>http://[IP]:[PORT:9123]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/SpaceinvaderOne/Docker-Templates-Unraid/master/spaceinvaderone/HomeAssistant_inabox_v3.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/SpaceinvaderOne/Docker-Templates-Unraid/master/spaceinvaderone/docker_icons/HomeAssistant.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <ExtraSearchTerms>homeassistant home assistant hass hassio haos supervised vm virtual machine zigbee zwave z-wave smarthome automation domotics</ExtraSearchTerms>
+  <Requires>Unraid's VM service must be enabled: Settings then VM Manager. The wizard checks this before it lets an install start and tells you if it is off, so nothing is lost if you forget - but it cannot create a VM without it.
+
+Hardware virtualisation (Intel VT-x or AMD-V) needs to be on in your BIOS. If you have ever run a VM on this server, it already is.
+
+No Home Assistant knowledge is needed. The wizard downloads Home Assistant OS itself, builds the VM and hands it to you set up.</Requires>
+  <Changes>### v3
+
+A complete rewrite. Everything is now driven from the container's own web page instead of template variables.
+
+- A setup wizard replaces the old template variables. Pick a Home Assistant OS release, a name, network, CPU and memory, and it builds the VM while showing you real progress - the download with actual percentages, a checksum check against the official release, and the first boot milestones as they happen.
+- The page becomes a status panel afterwards, listing every Home Assistant VM on the server with its address and a button to open it.
+- Existing Home Assistant VMs are found by reading the VM's own disk rather than guessing from its name, so an install you already had is recognised even while it is switched off.
+- Keeping a VM running is now opt-in per VM rather than one global setting, and notifications go out through whatever you have already configured in Unraid.
+- USB passthrough for Zigbee, Z-Wave, Bluetooth and similar, using Home Assistant's own device data to tell you what a stick is. Your Unraid boot flash is never offered.
+- Follows Home Assistant if it changes the address it answers on once onboarding finishes, so the links to it keep working.
+- Watch settings survive a container restart.
+
+Coming from v2: install this alongside your existing container, check your VM appears, then delete the old one. Your Home Assistant VM is untouched either way - it belongs to Unraid's VM manager, not to this container.</Changes>
+  <Config Name="Appdata" Target="/config" Default="/mnt/user/appdata/HomeAssistant_inabox_v3" Mode="rw" Description="Where the wizard keeps its own state, downloaded Home Assistant OS images and the VM XML it generates. Safe to back up; deleting it just means starting the wizard over." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/HomeAssistant_inabox_v3</Config>
+  <Config Name="Domains Share" Target="/domains" Default="/mnt/user/domains" Mode="rw" Description="Your Unraid VMs share. This is where the wizard writes the Home Assistant OS virtual disk." Type="Path" Display="advanced-hide" Required="true" Mask="false">/mnt/user/domains</Config>
+  <Config Name="Libvirt Socket" Target="/var/run/libvirt/libvirt-sock" Default="/var/run/libvirt/libvirt-sock" Mode="rw" Description="Lets the wizard talk to Unraid's VM manager (libvirt) to create the Home Assistant VM and check on it. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/var/run/libvirt/libvirt-sock</Config>
+  <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="ro" Description="Read-only access to Docker, used only to resolve this container's own host paths so the VM configuration the wizard writes points at real paths on your server. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="VM Icons" Target="/icons" Default="/usr/local/emhttp/plugins/dynamix.vm.manager/templates/images" Mode="rw" Description="Where the Home Assistant icon is placed so it shows up next to the VM in Unraid's VM manager. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/usr/local/emhttp/plugins/dynamix.vm.manager/templates/images</Config>
+  <Config Name="Domain Config" Target="/boot/config/domain.cfg" Default="/boot/config/domain.cfg" Mode="ro" Description="Read-only access to Unraid's VM Manager settings, used to pick the correct default network for the new VM and to check up front whether Unraid will let a VM start at all. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/boot/config/domain.cfg</Config>
+  <Config Name="QEMU Firmware" Target="/host/usr/share/qemu" Default="/usr/share/qemu" Mode="ro" Description="Read-only access to Unraid's QEMU firmware files, used to copy the UEFI variables file the VM needs to boot. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/usr/share/qemu</Config>
+  <Config Name="Notifications" Target="/tmp/notifications" Default="/tmp/notifications" Mode="rw" Description="Lets the wizard raise notifications that show up in the Unraid GUI, such as when setup finishes. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/tmp/notifications</Config>
+  <Config Name="Emhttp Scripts" Target="/usr/local/emhttp" Default="/usr/local/emhttp" Mode="ro" Description="Read-only access to Unraid's own web GUI scripts and state (including the state/var.ini file used to exclude the boot flash drive from USB device selection, reached through Unraid's own internal symlink). Used to run Unraid's own notify script, so this container's notifications go out through whatever you have already configured - browser, email, or an agent such as Apprise - instead of only the notification bell. If this mount and 'Emhttp State' below are both absent (existing installs before this update), notifications fall back to the bell automatically; nothing breaks. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/usr/local/emhttp</Config>
+  <Config Name="Emhttp State" Target="/var/local/emhttp" Default="/var/local/emhttp" Mode="ro" Description="Read-only access to Unraid's own runtime state - nginx.ini, so a notification's link points at your server's real address. Also completes the 'Emhttp Scripts' mount above: Unraid's own emhttp/state path is a symlink onto this folder, and Unraid's notify script (and the boot-flash-identity read it enables) needs both mounts present together to resolve. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/var/local/emhttp</Config>
+  <Config Name="Notification Agents" Target="/boot/config/plugins/dynamix" Default="/boot/config/plugins/dynamix" Mode="ro" Description="Read-only access to Unraid's own notification settings and the notification agent scripts you have configured there (for example, Apprise), so Unraid's own notify script can route this container's notifications the way you already set up rather than only to the notification bell. Disclosure: agent scripts in this folder carry their own credentials in plain text (an Apprise agent's Matrix username and password, a webhook URL, and so on) - this container only reads that folder to hand notifications to Unraid's own script and never transmits or logs its contents itself, but the credentials are exposed to this container, and to anything else with access to it, exactly as they already are to every other process on your server with read access to /boot. Required - do not change." Type="Path" Display="advanced-hide" Required="true" Mask="false">/boot/config/plugins/dynamix</Config>
+  <Config Name="WebUI" Target="9123" Default="9123" Mode="tcp" Description="Port the setup wizard's web page listens on. Open this in a browser to install Home Assistant. This is the wizard's own port, not Home Assistant's - the wizard links to Home Assistant from inside itself once the VM exists, on whichever port that VM turns out to answer on." Type="Port" Display="always" Required="true" Mask="false">9123</Config>
+  <Config Name="HA_inabox version" Target="WHATVERSION" Default="3" Mode="" Description="The version of this template, so the container can tell whether it matches the image running inside it. If Unraid ever updates this image to a new incompatible major version without also updating this template (templates do not update themselves), the mismatch is caught and explained on this container's WebUI instead of failing silently. Required - do not change." Type="Variable" Display="advanced-hide" Required="true" Mask="false">3</Config>
+  <TailscaleStateDir/>
+</Container>

@@ -1,0 +1,40 @@
+<h1>Choose a version</h1>
+<p class="lead">Recent stable Home Assistant OS releases, newest first. The latest is preselected.</p>
+
+{% if rate_limited %}
+<div class="warning">
+  <p class="kicker">PROBLEM</p>
+  <p><strong>Could not list releases:</strong> {{ rate_limit_message }}</p>
+  <p>You can still continue -- "latest" resolves to the newest release when the VM is built.</p>
+</div>
+{% endif %}
+
+<form hx-post="/step/version" hx-target="#content" hx-swap="innerHTML">
+  <div class="options">
+    {% for release in releases %}
+    <label class="option {{ 'is-selected' if release.version == selected else '' }}">
+      <input type="radio" name="version" value="{{ release.version }}"
+             {% if release.version == selected %}checked{% endif %}>
+      <span class="option-body">
+        <span class="option-title">{{ release.version }}</span>
+        <span class="option-meta">
+          Published {{ release.published[:10] }} &middot; {{ (release.size / 1048576) | round(1) }} MB
+        </span>
+      </span>
+    </label>
+    {% endfor %}
+    {% if not releases %}
+    <label class="option is-selected">
+      <input type="radio" name="version" value="latest" checked>
+      <span class="option-body">
+        <span class="option-title">Latest</span>
+        <span class="option-meta">Resolved automatically when the VM is built</span>
+      </span>
+    </label>
+    {% endif %}
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Continue</button>
+  </div>
+</form>

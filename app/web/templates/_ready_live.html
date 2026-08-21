@@ -1,0 +1,78 @@
+{# Everything on this page that can go stale while a tab sits open must live
+   here, not in step_ready.html: Home Assistant Core 2026.8 moves off port
+   8123 (onboarding) to port 80 the moment onboarding finishes, closing 8123
+   outright. This fragment -- not just the mirror at its tail -- is what
+   /ready/state re-fetches every 2s, so the button, headline, and both
+   address panels pick up a re-resolved endpoint (or `answered` flipping
+   true) without the user having to reload. See main.py's /ready/state route
+   for why this replaced rendering the button/panels once at page load. #}
+{% if watching %}
+{# This block only makes sense about a VM that is still being watched.
+   _ready_onboarding.html below has its own "nothing to mirror" message for
+   the case where the watch was cleared out from under an open tab (see its
+   own comment) -- gating here, rather than deleting that message, keeps one
+   place responsible for saying so instead of this block also claiming "the
+   VM is still coming up" about a watch that no longer exists, right above
+   it. #}
+{# `answered` is the only thing that licenses the confident wording on this
+   page: it means Home Assistant itself has replied to this container at least
+   once (the "web" milestone, or any reachable onboarding poll). Until this
+   wave there was no way to reach this step without it -- both routes here were
+   gated on that milestone -- so the copy could assume it. The manual link out
+   of the first-boot dead-end panel broke that assumption, and it lands the
+   user here in precisely the case where nothing has answered. The button and
+   both addresses stay regardless: they are useful exactly when we cannot
+   confirm they work. The promises do not. #}
+<h1>{% if answered %}Home Assistant is ready{% else %}Home Assistant hasn't answered yet{% endif %}</h1>
+<p class="lead">
+  {% if not address %}
+  The <strong>{{ vm_name }}</strong> VM is still coming up -- this page doesn't have an address
+  for it yet.
+  {% elif answered %}
+  The <strong>{{ vm_name }}</strong> VM has finished booting. From here on this is Home
+  Assistant's own interface, not ours -- open it in its own tab and set it up the way you would
+  on any other machine.
+  {% else %}
+  The <strong>{{ vm_name }}</strong> VM is running and has an address, but nothing has answered
+  us on it yet -- so we can't tell you whether Home Assistant is up. Everything below is still
+  worth trying: your browser may have a route to the VM that this container doesn't.
+  {% endif %}
+</p>
+
+<div class="actions">
+  {% if address %}
+  <a class="btn btn-primary btn-lg" href="{{ ip_url }}" target="homeassistant">
+    {% if answered %}Open Home Assistant{% else %}Try opening Home Assistant{% endif %}
+  </a>
+  {% else %}
+  <p class="warning">
+    We don't have an address for the VM yet -- reload this page in a moment.
+  </p>
+  {% endif %}
+</div>
+
+<div class="mac-panel">
+  <div class="mac-label">By IP address</div>
+  <div class="mac-value">{{ ip_url if address else "Not yet known" }}</div>
+  <p class="mac-hint">Always resolvable, but can change if the VM's own address ever does.</p>
+</div>
+
+{% if hostname %}
+<div class="mac-panel">
+  <div class="mac-label">By hostname{% if answered %} -- worth bookmarking{% endif %}</div>
+  <div class="mac-value">{{ hostname_url }}</div>
+  <p class="mac-hint">
+    {% if answered %}
+    This is the address Home Assistant's own documentation shows everyone, and it keeps working
+    even if the VM's IP address ever changes.
+    {% else %}
+    This is the address Home Assistant's own documentation shows everyone. Nothing has answered
+    on either address yet, though, so we can't promise this one resolves -- and on the NAT
+    network (virbr0) an mDNS name like this generally won't.
+    {% endif %}
+  </p>
+</div>
+{% endif %}
+{% endif %}
+
+{% include "_ready_onboarding.html" %}

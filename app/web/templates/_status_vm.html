@@ -1,0 +1,121 @@
+{# One VM's own row -- every line here names what was actually observed
+   about *this* VM (vm.state, vm.address, vm.url, vm.answered), never a
+   claim borrowed from another VM in the same list or from a state
+   discovery has not actually just read. See routes_status.VMStatus's own
+   docstring: address and url are always both None or both set, so the
+   branches below never need to consider "address known but nothing to
+   link to" or the reverse. vm.answered is a separate axis from vm.url --
+   an endpoint can resolve (vm.url set) without Home Assistant's own API
+   ever confirming it (vm.answered False) -- so "Home Assistant has
+   answered us here" is said only when vm.answered is true, never merely
+   because vm.url is set.
+
+   Deliberately does not use `loop.index`: a Jinja {% include %} shares the
+   parent template's context (the `with context` default), but `loop` is a
+   for-loop-local variable, not part of that context, so it is never visible
+   inside an included template -- confirmed the hard way, as an
+   UndefinedError, before this comment existed. `vm.name` is already unique
+   per VM (libvirt itself refuses two domains sharing a name). #}
+<li class="review-item" id="status-vm-{{ vm.name | replace(' ', '-') }}">
+  <div class="option-body">
+    <span class="option-title">{{ vm.name }}</span>
+    <span class="option-meta">
+      {# Review round 2, Important 1: "not running" is not "off" either --
+         paused/pmsuspended/in-shutdown get neither colour class, only the
+         base .vm-state styling. Claiming either colour for one of those
+         would be exactly the kind of unearned claim this panel exists to
+         avoid making. #}
+      <span class="vm-state{% if vm.running %} is-running{% elif vm.stopped %} is-off{% endif %}">{{ vm.state }}</span>
+      {%- if vm.address %} &middot; {{ vm.address }}{% endif %}
+    </span>
+    {% if vm.running %}
+    <span class="option-meta">
+      {# vm.answered is Home Assistant's own onboarding API confirming
+         itself, distinct from vm.url merely meaning something accepted a
+         connection on the guest's port (resolve_endpoint succeeding is not
+         onboarding_status confirming -- see VMStatus.answered's own
+         docstring). Hardware finding, 2026-08-15: windows20 was `confirmed`
+         (disk) with `url` set but nothing confirming, before the 404 fix --
+         this three-way split exists so that shape is never told "Home
+         Assistant has answered us here", the claim this panel has not
+         earned for it. #}
+      {% if vm.answered %}
+      Home Assistant has answered us here.
+      {% elif vm.url %}
+      We can reach something at this address, but it hasn't confirmed itself as Home Assistant.
+      {% else %}
+      We can't reach Home Assistant on this VM from here right now -- that isn't the same as it
+      being down; your browser may still have a route to it that this container doesn't.
+      {% endif %}
+    </span>
+    {% endif %}
+  </div>
+  <div class="vm-actions">
+    {% if vm.url %}
+    <a class="btn btn-primary" href="{{ vm.url }}" target="homeassistant">Open Home Assistant</a>
+    {% endif %}
+    {% if vm.stopped %}
+    {# Review round 2, Important 1: gated on genuinely "shut off", never on
+       "not running" -- a paused, pmsuspended, or mid-shutdown VM must never
+       be offered a Start button `virsh start` is guaranteed to refuse
+       ("Domain is already active"). routes_status.start_vm applies the
+       identical `stopped` rule server-side, so a crafted POST cannot reach
+       further than the button already refuses to appear. #}
+    <form hx-post="/vm/start" hx-target="#content" hx-swap="innerHTML">
+      <input type="hidden" name="name" value="{{ vm.name }}">
+      <button class="btn" type="submit">Start</button>
+    </form>
+    {% endif %}
+    {# Spec §7.1: watching is per-VM and opt-in, off by default -- see
+       app.web.watcher's own module docstring for why. `watch_gave_up`
+       replaces the checkbox with a re-enable control instead of silently
+       going back to an unticked box, so it is obvious this VM did not stop
+       being watched because someone chose that.
+
+       Both controls render for every VM this panel lists -- confirmed or
+       likely (routes_status.set_watch's own docstring: the tick itself is
+       the consent this safety property rests on, and `virsh
+       start`/`resume` act on the domain name, never the network address a
+       "likely" grade is about). A confidence gate used to sit here,
+       reasoning a likely VM's control would silently fail set_watch's own
+       re-check -- controller correction, review round 2: that broke the
+       headline case (a `likely` VM is always the running, answering one a
+       user most wants watched), and set_watch was widened to match rather
+       than the control staying hidden. #}
+    {% if vm.watch_gave_up %}
+    <div class="watch-gave-up">
+      {# Review round 2, Important: `watch_gave_up_reason` names the actual
+         cause this container observed (see VMStatus's own docstring) --
+         never a fixed "gave up trying to start it" sentence, which reads
+         as false the moment the cause is a VM that started every time and
+         simply would not stay up.
+
+         Review round 3, Minor: `watch_gave_up_reason` is documented as
+         defensive-only -- nothing in app.web.watcher leaves `gave_up`
+         True with this still None on any path that runs today -- but a
+         template must not be able to print Python's own `None` at a user
+         if that ever stops being true; `or` falls back to a neutral,
+         still-honest line rather than asserting a cause this container
+         did not, in that case, actually observe. #}
+      <span class="option-meta">
+        This container gave up watching {{ vm.name }}:
+        {{ vm.watch_gave_up_reason or "no reason was recorded" }}.
+      </span>
+      <form hx-post="/vm/watch" hx-target="#content" hx-swap="innerHTML">
+        <input type="hidden" name="name" value="{{ vm.name }}">
+        <input type="hidden" name="enabled" value="true">
+        <button class="btn" type="submit">Re-enable watching</button>
+      </form>
+    </div>
+    {% else %}
+    <form class="watch-toggle" hx-post="/vm/watch" hx-target="#content" hx-swap="innerHTML"
+          hx-trigger="change">
+      <input type="hidden" name="name" value="{{ vm.name }}">
+      <label class="watch-toggle-label">
+        <input type="checkbox" name="enabled" value="true" {% if vm.watch_enabled %}checked{% endif %}>
+        Keep this VM running
+      </label>
+    </form>
+    {% endif %}
+  </div>
+</li>
