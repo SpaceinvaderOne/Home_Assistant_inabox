@@ -22,13 +22,12 @@ dev = [
     "pytest>=9.1",
     "pytest-asyncio>=1.4",
     "ruff>=0.16",
-    # starlette's TestClient (used by our test suite) needs an httpx transport
-    # in the fastapi/starlette versions resolved here; not in the original Task 1
-    # brief, added because `venv/bin/pytest tests/web` cannot import
-    # fastapi.testclient without it. starlette prefers a package called
-    # "httpx2", but that name is unfamiliar and unverified, so we pin to the
-    # well-known "httpx" instead; starlette falls back to it with a harmless
-    # deprecation warning. Test-only — nothing in app/ imports httpx directly.
+    # starlette's TestClient (used by the test suite) needs an httpx transport
+    # in the fastapi/starlette versions resolved here; fastapi.testclient
+    # cannot be imported without it. starlette prefers a package called
+    # "httpx2"; the well-known "httpx" is used instead, and starlette falls
+    # back to it with a harmless deprecation warning. Test-only -- nothing in
+    # app/ imports httpx directly.
     "httpx>=0.28",
 ]
 

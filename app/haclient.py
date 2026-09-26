@@ -11,6 +11,9 @@ HA_PORT = 8123
 
 CANDIDATE_PORTS: tuple[int, ...] = (80, HA_PORT)
 
+# What Home Assistant's own /manifest.json calls it.
+HOME_ASSISTANT_NAME = "Home Assistant"
+
 ONBOARDING_TIMEOUT = 5.0
 PORT_PROBE_TIMEOUT = 2.0
 
@@ -82,12 +85,20 @@ def resolve_endpoint(
     timeout: float = PORT_PROBE_TIMEOUT,
     opener=urllib.request.urlopen,
 ) -> Endpoint | None:
-    """Ask Home Assistant where it lives, instead of assuming a port."""
+    """Ask Home Assistant where it lives, instead of assuming a port.
+
+    A port counts only when what answers there confirms it is Home Assistant:
+    its onboarding API replying with HA's own steps, or failing that, its
+    manifest naming it. An onboarded install answers /api/onboarding with 404,
+    exactly as any other web server on the same port would.
+    """
     for port in ports:
         url = f"http://{ip}:{port}/api/onboarding"
+        body = b""
         try:
             with opener(url, timeout=timeout) as response:
                 landed = response.geturl()
+                body = response.read()
         except urllib.error.HTTPError as err:
             landed = err.url
         except (TimeoutError, urllib.error.URLError):
@@ -95,8 +106,19 @@ def resolve_endpoint(
         resolved = _endpoint_from_url(landed)
         if resolved is None:
             continue
-        return resolved.with_host(ip)
+        resolved = resolved.with_host(ip)
+        if _onboarding_steps(body):
+            return resolved
+        if manifest_name(resolved, timeout=timeout, opener=opener) == HOME_ASSISTANT_NAME:
+            return resolved
     return None
+
+
+def _onboarding_steps(body: bytes) -> tuple[OnboardingStep, ...] | None:
+    try:
+        return _parse_steps(json.loads(body))
+    except (ValueError, UnicodeDecodeError):
+        return None
 
 
 def _parse_steps(payload: object) -> tuple[OnboardingStep, ...] | None:

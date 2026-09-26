@@ -2,15 +2,22 @@
 
 import json
 import shlex
+import tempfile
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from xml.etree import ElementTree
-from xml.sax.saxutils import quoteattr
+from xml.sax.saxutils import escape, quoteattr
 
 from app.proc import run
 from app.vmxml import metadata_attributes, read_metadata_namespace
 
 MISSING = "missing"
+
+# What libvirt says when a dir pool's folder does not exist.
+MISSING_DIRECTORY = "No such file or directory"
+
+DIRECTORY_MODE = "0755"
 
 GUEST_INTERNAL_INTERFACE_PREFIXES = ("docker", "hassio", "veth", "br-")
 
@@ -40,6 +47,17 @@ def _vmtemplate_attributes(domain_xml: str) -> dict[str, str]:
         if element.tag.rpartition("}")[-1] == "vmtemplate":
             return dict(element.attrib)
     return {}
+
+
+def _dir_pool_xml(name: str, path: str) -> str:
+    """A dir pool whose build leaves the folder as Unraid's own mkdir does."""
+    return (
+        "<pool type='dir'>"
+        f"<name>{escape(name)}</name>"
+        f"<target><path>{escape(path)}</path>"
+        f"<permissions><mode>{DIRECTORY_MODE}</mode><owner>0</owner><group>0</group></permissions>"
+        "</target></pool>"
+    )
 
 
 def _count_vmtemplates(domain_xml: str) -> int:
@@ -136,6 +154,32 @@ class Virsh:
 
     def dumpxml(self, name: str) -> str:
         return self._call("dumpxml", name)[1]
+
+    def ensure_directory(self, path: str) -> bool:
+        """Make sure `path` exists on the host, and return True if it had to be
+        created.
+
+        libvirtd does the work, through a transient dir pool that is destroyed
+        straight away, so the container needs no mount of the folder. The pool
+        is first started without a build, which fails only when the folder is
+        missing; a folder that already exists is never built, because building
+        applies the pool's permissions to it.
+        """
+        name = f"inabox-mkdir-{uuid.uuid4().hex[:12]}"
+        with tempfile.TemporaryDirectory(prefix="inabox-pool-") as scratch:
+            pool_xml = Path(scratch) / "pool.xml"
+            pool_xml.write_text(_dir_pool_xml(name, path))
+
+            code, _out, err = self._call("pool-create", str(pool_xml), check=False)
+            if code == 0:
+                self._call("pool-destroy", name, check=False)
+                return False
+            if MISSING_DIRECTORY not in err:
+                raise VirshError(["virsh", "pool-create", str(pool_xml)], code, err)
+
+            self._call("pool-create", str(pool_xml), "--build")
+            self._call("pool-destroy", name, check=False)
+            return True
 
     def set_webui(self, name: str, url: str, default: str | tuple[str, ...] = "") -> bool | None:
         """Correct the WebUI link Unraid's VM manager offers for `name`."""

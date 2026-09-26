@@ -1,6 +1,6 @@
 <h1>Home Assistant</h1>
 
-{# Plan 7: one banner, one activity at a time -- the container runs one
+{# One banner, one activity at a time -- the container runs one
    wizard. Computed live in routes_status.status_context (see
    _activity_banner's own docstring for the priority order and why the
    wizard-parked clause is not simply `SESSION.version`), so this is never
@@ -34,7 +34,7 @@
   {% endif %}
 </p>
 
-{# Spec §7.1: "if a second VM is ticked, warn plainly; do not block" -- a
+{# If a second VM is ticked, warn plainly but do not block -- a
    test instance on its own VLAN is a legitimate reason to want this, so
    this never refuses the second checkbox, only says why it might matter.
    Recomputed on every render from live watcher state, never a one-shot

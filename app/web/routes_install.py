@@ -6,6 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from app import download as dl
+from app import paths
 from app.capabilities import highest_q35
 from app.events import Event
 from app.hostinfo import free_bytes, host_path_for
@@ -154,6 +155,9 @@ class RealDeps:
     def check_ovmf_vars(self):
         return dl.check_ovmf_vars()
 
+    def ensure_nvram_dir(self):
+        return self._virsh.ensure_directory(paths.NVRAM_DIR)
+
     def place_vm_icon(self, name):
         return place_vm_icon(name)
 
@@ -180,12 +184,17 @@ def _domains_host_path() -> str:
 
 
 def _release_for(version: str) -> Release:
-    """Resolve the version step's choice to a full Release."""
+    """Resolve the version step's choice to a full Release, asking GitHub only
+    when the wizard is not already holding it, and keeping what it gets."""
+    held = SESSION.release
+    if held is not None and version in (held.version, "latest", ""):
+        return held
+    release = None
     if version and version != "latest":
-        for release in fetch_releases(30):
-            if release.version == version:
-                return release
-    return fetch_latest()
+        release = next((r for r in fetch_releases(30) if r.version == version), None)
+    release = release or fetch_latest()
+    SESSION.release = release
+    return release
 
 
 def _current_plan() -> InstallPlan:

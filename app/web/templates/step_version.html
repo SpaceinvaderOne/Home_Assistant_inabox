@@ -9,6 +9,16 @@
 </div>
 {% endif %}
 
+{% if stale_reason %}
+<div class="warning">
+  <p class="kicker">SAVED LIST</p>
+  <p><strong>Couldn't check GitHub just now.</strong> {{ stale_reason }}</p>
+  <p>This is the list fetched {{ fetched_ago }}. A release never changes once it's published, so
+    any of these installs exactly as it would have then. Newer releases may exist that aren't
+    shown here.</p>
+</div>
+{% endif %}
+
 <form hx-post="/step/version" hx-target="#content" hx-swap="innerHTML">
   <div class="options">
     {% for release in releases %}

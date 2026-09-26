@@ -7,7 +7,7 @@ from typing import Protocol
 from xml.etree import ElementTree
 
 from app import haosdisk, hostinfo
-from app.haclient import CANDIDATE_PORTS, Endpoint, OnboardingState
+from app.haclient import CANDIDATE_PORTS, HOME_ASSISTANT_NAME, Endpoint, OnboardingState
 from app.haosdisk import DiskIdentity
 
 NETWORK_BUDGET_S = 3.0
@@ -93,7 +93,7 @@ def _disk_sources(domain_xml: str) -> tuple[list[str], list[_OtherDisk]]:
     return paths, other
 
 
-HOME_ASSISTANT_MANIFEST_NAME = "Home Assistant"
+HOME_ASSISTANT_MANIFEST_NAME = HOME_ASSISTANT_NAME
 
 
 def _onboarding_evidence(endpoint: Endpoint, onboarding: OnboardingState) -> str | None:

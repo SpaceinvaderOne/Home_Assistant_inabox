@@ -6,8 +6,8 @@ from xml.sax.saxutils import quoteattr
 
 from app.models import VMSettings
 
-# The QEMU/KVM OUI, as used by Unraid. v2 used AC:87:A3 — an Apple OUI left over
-# from Macinabox, which causes routers to identify the VM as Apple hardware.
+# The QEMU/KVM OUI, as used by Unraid, so routers identify the VM as a virtual
+# machine rather than as some other vendor's hardware.
 QEMU_OUI = (0x52, 0x54, 0x00)
 
 

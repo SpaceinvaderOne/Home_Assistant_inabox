@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 from dataclasses import dataclass
 
 from app.capabilities import host_cpus
@@ -28,12 +29,13 @@ from app.hostinfo import (
 from app.libvirtctl import Virsh
 from app.models import USBDevice
 from app.paths import DOMAIN_CFG_PATH
-from app.releases import RateLimitedError, fetch_releases
-from app.usbdevices import UsbDevice, enumerate_devices, flash_identity_known
+from app.release_cache import UNREACHABLE, ReleaseSource
+from app.releases import RateLimitedError
+from app.usbdevices import UsbDevice, enumerate_devices, flash_identity_known, unraid_version
 from app.web.session import MAX_VCPUS, MIN_DISK_GIB, MIN_MEMORY_MIB, SESSION, ValidationError
 from app.web.steps import next_step
 
-LIBVIRT_SOCKET = "/var/run/libvirt/libvirt-sock"
+LIBVIRT_RUN_DIR = "/var/run/libvirt"
 DOMAINS_CONTAINER_PATH = "/domains"
 
 DOMAIN_CFG_LINE = re.compile(r"^([A-Za-z_]\w*)\s*=\s*(.*)$")
@@ -154,6 +156,35 @@ def welcome_context(virsh) -> dict:
     }
 
 
+MIN_UNRAID_MAJOR = 7
+
+
+def _unraid_version_check(version: str | None) -> Check:
+    """Unraid 6's libvirt rejects the VM this builds, so an install stops here."""
+    major = None
+    if version:
+        head = version.split(".", 1)[0]
+        major = int(head) if head.isdigit() else None
+    if major is None:
+        return Check(
+            "unraid_version",
+            True,
+            "Could not read which Unraid version this is; continuing without that "
+            "check. Home Assistant inabox v3 needs Unraid 7.0 or newer.",
+        )
+    if major < MIN_UNRAID_MAJOR:
+        return Check(
+            "unraid_version",
+            False,
+            f"This server runs Unraid {version}. Home Assistant inabox v3 needs "
+            "Unraid 7.0 or newer, because Unraid 6's VM manager can't create the VM "
+            "it builds. Update Unraid (Tools -> Update OS), then try again. To stay "
+            "on Unraid 6, the previous version of this container "
+            "(spaceinvaderone/ha_inabox:2) still works.",
+        )
+    return Check("unraid_version", True, f"Unraid {version}")
+
+
 def preflight(
     virsh,
     host_path=host_path_for,
@@ -161,9 +192,18 @@ def preflight(
     vm_manager_settings=read_vm_manager_settings,
     *,
     existing: Check | None = None,
+    unraid_version=None,
 ) -> list[Check]:
     """Everything that decides whether an install can succeed, as evidence."""
     checks: list[Check] = []
+
+    try:
+        version = (unraid_version or _unraid_version)()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException:
+        version = None
+    checks.append(_unraid_version_check(version))
 
     try:
         virsh.capabilities()
@@ -175,7 +215,7 @@ def preflight(
             Check(
                 "libvirt",
                 False,
-                f"Add -v {LIBVIRT_SOCKET}:{LIBVIRT_SOCKET} to your docker run. ({err})",
+                f"Add -v {LIBVIRT_RUN_DIR}:{LIBVIRT_RUN_DIR} to your docker run. ({err})",
             )
         )
 
@@ -303,7 +343,8 @@ def next_step_key(key: str) -> str | None:
     return next_step(key)
 
 
-_releases = fetch_releases
+RELEASES = ReleaseSource()
+_releases = RELEASES.current
 
 
 def _bridges() -> list[Bridge]:
@@ -328,6 +369,10 @@ def _usb_devices() -> list[UsbDevice]:
     monkeypatch routes_wizard._usb_devices the same way every other seam
     here already is -- no real filesystem I/O in the test suite."""
     return enumerate_devices()
+
+
+def _unraid_version() -> str | None:
+    return unraid_version()
 
 
 def _flash_identity_known() -> bool:
@@ -375,7 +420,7 @@ def _discover(virsh) -> list[FoundVM]:
 def version_context() -> dict:
     """Build the version step's template context."""
     try:
-        releases = _releases()
+        listed = _releases()
     except RateLimitedError as err:
         return {
             "releases": (),
@@ -383,14 +428,39 @@ def version_context() -> dict:
             "rate_limit_message": str(err),
             "selected": SESSION.version or "latest",
         }
+    releases = listed.releases
     selected = SESSION.version or (releases[0].version if releases else "latest")
-    return {"releases": releases, "rate_limited": False, "selected": selected}
+    return {
+        "releases": releases,
+        "rate_limited": False,
+        "selected": selected,
+        "stale_reason": listed.stale_reason,
+        "fetched_ago": _ago(time.time() - listed.fetched_at),
+    }
+
+
+def _ago(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    if minutes < 1:
+        return "moments ago"
+    if minutes < 60:
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    hours = minutes // 60
+    if hours < 48:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    return f"{hours // 24} days ago"
 
 
 def apply_version(form) -> None:
-    """Store the chosen version. Any non-empty value is accepted, including
+    """Store the chosen version, and the listed release it names so later steps
+    need not ask GitHub again. Any non-empty value is accepted, including
     "latest" -- the fallback when the release list could not be fetched."""
     SESSION.version = (form.get("version") or "").strip() or "latest"
+    try:
+        listed = _releases().releases
+    except (RateLimitedError, *UNREACHABLE):
+        listed = ()
+    SESSION.release = next((r for r in listed if r.version == SESSION.version), None)
 
 
 # ---- Placement step ----------------------------------------------------------

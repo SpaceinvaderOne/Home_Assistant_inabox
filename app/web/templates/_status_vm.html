@@ -20,11 +20,9 @@
   <div class="option-body">
     <span class="option-title">{{ vm.name }}</span>
     <span class="option-meta">
-      {# Review round 2, Important 1: "not running" is not "off" either --
-         paused/pmsuspended/in-shutdown get neither colour class, only the
-         base .vm-state styling. Claiming either colour for one of those
-         would be exactly the kind of unearned claim this panel exists to
-         avoid making. #}
+      {# "Not running" is not "off" either -- paused/pmsuspended/in-shutdown
+         get neither colour class, only the base .vm-state styling, since
+         either colour would claim something this panel has not observed. #}
       <span class="vm-state{% if vm.running %} is-running{% elif vm.stopped %} is-off{% endif %}">{{ vm.state }}</span>
       {%- if vm.address %} &middot; {{ vm.address }}{% endif %}
     </span>
@@ -55,7 +53,7 @@
     <a class="btn btn-primary" href="{{ vm.url }}" target="homeassistant">Open Home Assistant</a>
     {% endif %}
     {% if vm.stopped %}
-    {# Review round 2, Important 1: gated on genuinely "shut off", never on
+    {# Gated on genuinely "shut off", never on
        "not running" -- a paused, pmsuspended, or mid-shutdown VM must never
        be offered a Start button `virsh start` is guaranteed to refuse
        ("Domain is already active"). routes_status.start_vm applies the
@@ -66,37 +64,25 @@
       <button class="btn" type="submit">Start</button>
     </form>
     {% endif %}
-    {# Spec §7.1: watching is per-VM and opt-in, off by default -- see
+    {# Watching is per-VM and opt-in, off by default -- see
        app.web.watcher's own module docstring for why. `watch_gave_up`
        replaces the checkbox with a re-enable control instead of silently
        going back to an unticked box, so it is obvious this VM did not stop
        being watched because someone chose that.
 
-       Both controls render for every VM this panel lists -- confirmed or
-       likely (routes_status.set_watch's own docstring: the tick itself is
-       the consent this safety property rests on, and `virsh
-       start`/`resume` act on the domain name, never the network address a
-       "likely" grade is about). A confidence gate used to sit here,
-       reasoning a likely VM's control would silently fail set_watch's own
-       re-check -- controller correction, review round 2: that broke the
-       headline case (a `likely` VM is always the running, answering one a
-       user most wants watched), and set_watch was widened to match rather
-       than the control staying hidden. #}
+       Both controls render for every VM this panel lists, confirmed or
+       likely: the tick itself is the consent this safety property rests on,
+       and `virsh start`/`resume` act on the domain name, never the network
+       address a "likely" grade is about. A likely VM is usually the running,
+       answering one a user most wants watched. #}
     {% if vm.watch_gave_up %}
     <div class="watch-gave-up">
-      {# Review round 2, Important: `watch_gave_up_reason` names the actual
-         cause this container observed (see VMStatus's own docstring) --
-         never a fixed "gave up trying to start it" sentence, which reads
-         as false the moment the cause is a VM that started every time and
-         simply would not stay up.
-
-         Review round 3, Minor: `watch_gave_up_reason` is documented as
-         defensive-only -- nothing in app.web.watcher leaves `gave_up`
-         True with this still None on any path that runs today -- but a
-         template must not be able to print Python's own `None` at a user
-         if that ever stops being true; `or` falls back to a neutral,
-         still-honest line rather than asserting a cause this container
-         did not, in that case, actually observe. #}
+      {# `watch_gave_up_reason` names the actual cause this container
+         observed -- never a fixed "gave up trying to start it" sentence,
+         which reads as false when the cause is a VM that started every time
+         and simply would not stay up. The `or` is defensive: it keeps
+         Python's `None` off the page with a neutral line rather than
+         asserting a cause that was not observed. #}
       <span class="option-meta">
         This container gave up watching {{ vm.name }}:
         {{ vm.watch_gave_up_reason or "no reason was recorded" }}.

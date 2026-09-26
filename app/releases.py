@@ -1,7 +1,9 @@
 """Resolve Home Assistant OS releases from the GitHub releases API."""
 
 import json
+import math
 import re
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -72,16 +74,29 @@ def parse_release_list(payload: list) -> list[Release]:
     return releases
 
 
-def _get_json(url: str, opener=urllib.request.urlopen):
+def _rate_limit_message(headers, clock) -> str:
+    """Say when GitHub will take requests again, if it told us."""
+    lead = (
+        "GitHub's rate limit for your network's public address has been reached "
+        "(60 requests an hour for anyone not signed in). "
+    )
+    try:
+        reset = int((headers or {}).get("X-RateLimit-Reset") or "")
+    except ValueError:
+        return lead + "Try again later."
+    minutes = math.ceil(max(reset - clock(), 0) / 60)
+    if minutes <= 1:
+        return lead + "It will accept them again in about a minute."
+    return lead + f"It will accept them again in about {minutes} minutes."
+
+
+def _get_json(url: str, opener=urllib.request.urlopen, clock=time.time):
     try:
         with opener(request_for(url), timeout=API_TIMEOUT) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as err:
         if err.code in (403, 429):
-            raise RateLimitedError(
-                "GitHub rate limit reached (60 requests/hour for unauthenticated calls). "
-                "Try again later."
-            ) from err
+            raise RateLimitedError(_rate_limit_message(err.headers, clock)) from err
         raise
     except (TimeoutError, urllib.error.URLError) as err:
         if is_timeout(err):
@@ -92,11 +107,13 @@ def _get_json(url: str, opener=urllib.request.urlopen):
         raise
 
 
-def fetch_latest(opener=urllib.request.urlopen) -> Release:
-    return parse_release(_get_json(f"{API}/latest", opener))
+def fetch_latest(opener=urllib.request.urlopen, clock=time.time) -> Release:
+    return parse_release(_get_json(f"{API}/latest", opener, clock))
 
 
-def fetch_releases(limit: int = 10, opener=urllib.request.urlopen) -> list[Release]:
+def fetch_releases(
+    limit: int = 10, opener=urllib.request.urlopen, clock=time.time
+) -> list[Release]:
     """The newest `limit` stable releases that have a usable asset."""
     per_page = min(limit * OVER_FETCH, MAX_PER_PAGE)
-    return parse_release_list(_get_json(f"{API}?per_page={per_page}", opener))[:limit]
+    return parse_release_list(_get_json(f"{API}?per_page={per_page}", opener, clock))[:limit]

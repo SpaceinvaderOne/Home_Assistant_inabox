@@ -19,6 +19,9 @@ DOCKER_TIMEOUT = 10.0
 BRNAME = re.compile(r'^BRNAME="([^"]+)"', re.MULTILINE)
 VHOST = re.compile(r"^vhost\d+$")
 
+# The single-socket mapping some existing installs still carry.
+LEGACY_LIBVIRT_SOCKET_MAPPING = "/var/run/libvirt/libvirt-sock"
+
 # What a correct `docker run -v` looks like for each mapping we ask about, so the
 # error can name the exact argument that is missing rather than a bare KeyError.
 MOUNT_HINTS = {
@@ -104,6 +107,20 @@ def host_path_for(container_path: str, inspect=_docker_inspect) -> str:
     raise MountNotFoundError(
         f"no bind mount found for container path {container_path}; "
         f"add -v {hint}:{container_path} to your docker run"
+    )
+
+
+def maps_libvirt_socket_file(inspect=_docker_inspect) -> bool:
+    """Was this container started with the libvirt socket file itself mapped in,
+    rather than the folder it lives in?
+
+    The socket only exists while the VM service runs. When the container starts
+    first at boot, Docker creates a folder at that path and libvirtd can then
+    not start at all.
+    """
+    return any(
+        mount.get("Destination") == LEGACY_LIBVIRT_SOCKET_MAPPING
+        for mount in inspect().get("Mounts", [])
     )
 
 

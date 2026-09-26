@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, fields
 
 from app import paths
 from app.models import NetworkSource, USBDevice, VMSettings
+from app.releases import Release
 from app.vmxml import generate_mac
 
 # The shipped HAOS image is a 32 GiB disk and qemu-img cannot shrink it.
@@ -30,6 +31,9 @@ class WizardState:
     size_gib: int = 64
     cpu_pins: tuple[int, ...] = ()
     usb_devices: tuple[USBDevice, ...] = ()
+    # The release chosen at the version step, kept so later steps need not ask
+    # GitHub again.
+    release: Release | None = None
     _mac: str = field(default_factory=generate_mac)
     _uuid: str = field(default_factory=lambda: str(uuidlib.uuid4()))
 

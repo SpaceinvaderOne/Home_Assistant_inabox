@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,8 +12,10 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app import hostinfo
 from app.installer import TERMINAL_STEP
 from app.libvirtctl import Virsh
+from app.vmicon import place_vm_icon
 from app.web import routes_firstboot as rf
 from app.web import routes_install as ri
 from app.web import routes_status as rs
@@ -23,6 +26,8 @@ from app.web.events import EventBus, format_line, sse_frame
 from app.web.session import ValidationError
 from app.web.steps import STATUS_STEP
 from app.web.steps import STEPS as WIZARD_STEPS
+
+_LOG = logging.getLogger(__name__)
 
 HERE = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(HERE / "templates"))
@@ -73,8 +78,52 @@ def _apply_step(key: str, form) -> tuple[str, dict | None]:
     return key, None
 
 
-def create_app(*, start_watcher: bool = False, state_path: str | Path | None = None) -> FastAPI:
+def _maps_libvirt_socket_file() -> bool:
+    """Whether to show the notice about the single-socket libvirt mapping. A check
+    that could not run claims nothing either way."""
+    try:
+        legacy = hostinfo.maps_libvirt_socket_file()
+    except Exception as err:
+        _LOG.warning("could not check how libvirt is mapped into this container: %s", err)
+        return False
+    if legacy:
+        _LOG.warning(
+            "This container's template has been updated since it was installed. It maps "
+            "%s, a socket that only exists once Unraid's VM service "
+            "is running. If the container starts first at boot, Docker creates a folder "
+            "there and the VM service cannot start. Edit the container's Libvirt Socket "
+            "setting so both the container path and the host path are %s.",
+            hostinfo.LEGACY_LIBVIRT_SOCKET_MAPPING,
+            rw.LIBVIRT_RUN_DIR,
+        )
+    return legacy
+
+
+def _place_vm_icon() -> None:
+    """Unraid's VM icons folder is in RAM and emptied at every boot, so the
+    icon an install placed has to be put back each time the container starts."""
+    try:
+        outcome = place_vm_icon()
+    except Exception as err:
+        _LOG.warning("could not place the Home Assistant VM icon: %s", err)
+        return
+    if outcome is not None and not outcome.placed:
+        _LOG.info("VM icon not placed: %s", outcome.reason)
+
+
+def create_app(
+    *,
+    start_watcher: bool = False,
+    state_path: str | Path | None = None,
+    check_mounts: bool = False,
+    place_icon: bool = False,
+) -> FastAPI:
     bus = EventBus()
+    if place_icon:
+        _place_vm_icon()
+    TEMPLATES.env.globals["legacy_libvirt_mapping"] = (
+        _maps_libvirt_socket_file() if check_mounts else False
+    )
 
     if state_path is not None:
         restored = state_store.enable(state_path)

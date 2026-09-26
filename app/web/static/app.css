@@ -242,7 +242,7 @@ body {
 .vm-state.is-off { color: var(--tx3); }
 .vm-actions { display: flex; align-items: center; gap: 0.6rem; flex: 0 0 auto; }
 
-/* ---- watcher (spec §7.1) ---- */
+/* ---- watcher ---- */
 .watch-toggle { display: flex; align-items: center; }
 .watch-toggle-label {
   display: flex; align-items: center; gap: 0.4rem;
@@ -271,3 +271,11 @@ body {
 .disclosure[open] summary::before { content: "\25be  "; }
 .disclosure .lead { margin-top: 0.6rem; }
 .disclosure .options { margin-top: 0.9rem; }
+
+/* ---- out-of-date container mapping: top of the content column, every page ---- */
+.column { flex: 1; min-width: 0; }
+.mount-notice { margin: 2.2rem 2.6rem 0; max-width: 780px; }
+.mount-notice code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mount-notice details { margin-top: 0.4rem; }
+.mount-notice summary { cursor: pointer; font-size: 0.82rem; color: var(--tx3); }
+.mount-notice details p { margin-top: 0.4rem; color: var(--tx2); }

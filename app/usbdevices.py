@@ -94,13 +94,9 @@ def _ini_value(raw: str) -> str:
     return raw
 
 
-def _read_flash_guid(path: str) -> str | None:
-    """flashGUID from var.ini, or None if the file is unreadable, carries no
-    flashGUID, or carries an empty one.
-
-    None always means "no exclusion evidence", never "the boot flash was found
-    and excluded".
-    """
+def _read_var_ini(path: str, key: str) -> str | None:
+    """One value from Unraid's var.ini, or None if the file is unreadable,
+    lacks the key, or the value is empty."""
     try:
         text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
@@ -110,11 +106,25 @@ def _read_flash_guid(path: str) -> str | None:
         if not line or line.startswith("#"):
             continue
         match = _INI_LINE.match(line)
-        if not match or match.group(1) != "flashGUID":
+        if not match or match.group(1) != key:
             continue
         value = _ini_value(match.group(2))
         return value or None
     return None
+
+
+def _read_flash_guid(path: str) -> str | None:
+    """flashGUID from var.ini, or None if it could not be read.
+
+    None always means "no exclusion evidence", never "the boot flash was found
+    and excluded".
+    """
+    return _read_var_ini(path, "flashGUID")
+
+
+def unraid_version(var_ini_path: str = VAR_INI_PATH) -> str | None:
+    """The Unraid version this server runs, e.g. "7.3.2", or None."""
+    return _read_var_ini(var_ini_path, "version")
 
 
 def flash_identity_known(var_ini_path: str = VAR_INI_PATH) -> bool:

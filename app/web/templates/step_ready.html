@@ -34,10 +34,10 @@
   <strong>{{ vm_name }}</strong> keeps running throughout, exactly as it is now.
 </p>
 <div class="actions">
-  {# Plan 7, change #2: "Ready gains 'Back to home' alongside 'Start another
-     VM'." Home keeps the watch and this session intact -- it's the same
-     plain href="/" every step's rail carries (see _rail.html) -- while
-     "Start another VM" stays the explicit reset it already was. #}
+  {# "Back to home" sits alongside "Start another VM". Home keeps the watch
+     and this session intact -- it's the same plain href="/" every step's
+     rail carries (see _rail.html) -- while "Start another VM" is the
+     explicit reset. #}
   <a class="btn btn-primary" href="/">Back to home</a>
   <form hx-post="/another-vm" hx-target="#content" hx-swap="innerHTML">
     <button class="btn" type="submit">Start another VM</button>

@@ -1,0 +1,18 @@
+<div class="warning mount-notice" id="mount-notice">
+  <span class="kicker">One setting needs changing</span>
+  <p>
+    This container's template has been updated since you installed it, and Unraid doesn't
+    change an existing container's settings on its own. To match it, set
+    <strong>Libvirt Socket</strong> to <code>/var/run/libvirt</code> for both the container
+    path and the host path, then Apply.
+  </p>
+  <details>
+    <summary>Why?</summary>
+    <p>
+      It currently points at <code>/var/run/libvirt/libvirt-sock</code>, which only exists
+      once the VM service is running. If this container starts first when the server boots,
+      Docker makes a folder there and the VM service can't start. If that has already
+      happened, reboot once the setting is changed. Your VMs aren't affected.
+    </p>
+  </details>
+</div>

@@ -76,9 +76,7 @@ def _activity_banner() -> ActivityBanner | None:
 
 def _shown_on_panel(found: list[FoundVM]) -> list[FoundVM]:
     """What this panel is sure enough about to list at all -- confirmed or
-    likely, never "unknown". See this module's own docstring for why a
-    the panel's own bar and why it is the one it is
-    anymore."""
+    likely, never "unknown"."""
     return [vm for vm in found if vm.confidence in ("confirmed", "likely")]
 
 

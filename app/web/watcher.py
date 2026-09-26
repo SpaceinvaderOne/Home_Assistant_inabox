@@ -8,6 +8,7 @@ restarted forever, and the reason is surfaced rather than acted on.
 import asyncio
 import logging
 import threading
+import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -33,6 +34,11 @@ MAX_CONSECUTIVE_RESTARTS = 5
 RESTART_WINDOW_POLLS = MAX_CONSECUTIVE_RESTARTS * 3
 
 UNREACHABLE_NOTIFY_AFTER = 3
+
+# At boot this container can start moments before Unraid's VM service. Until
+# the first poll reaches libvirt, retry this often, for at most this long.
+STARTUP_RETRY_SECONDS = 10
+STARTUP_RETRY_WINDOW_SECONDS = 300
 
 _ACTION_FOR_STATE: dict[str, str] = {
     "shut off": "start",
@@ -175,8 +181,10 @@ class Watcher:
 
     # ---- the poll itself -------------------------------------------------
 
-    def poll_once(self, emit: Callable[[Event], None] | None = None, virsh=None) -> None:
-        """One pass over every VM this watcher is currently enabled for."""
+    def poll_once(self, emit: Callable[[Event], None] | None = None, virsh=None) -> bool:
+        """One pass over every VM this watcher is currently enabled for.
+        Returns False when the discovery scan itself failed, which is almost
+        always libvirt not answering."""
         virsh = virsh if virsh is not None else self._virsh_factory()
         discover = self._discover if self._discover is not None else rw._discover
         try:
@@ -185,7 +193,7 @@ class Watcher:
             raise
         except BaseException as exc:
             _LOG.warning("watcher: discovery scan failed; skipping this poll: %s", exc)
-            return
+            return False
 
         by_name = {vm.name: vm for vm in found}
         for name in list(self._entries):
@@ -201,6 +209,7 @@ class Watcher:
                 raise
             except BaseException as exc:
                 _LOG.warning("watcher: polling %r failed; continuing: %s", name, exc)
+        return True
 
     def _poll_vm(self, virsh, vm: FoundVM, entry: _WatchEntry, emit) -> None:
         action = _ACTION_FOR_STATE.get(vm.state)
@@ -320,8 +329,8 @@ class Watcher:
         `warning` notification -- never a virsh call of any kind, however
         long `vm.answered` stays False. Home Assistant can be legitimately
         unreachable for minutes during its own core updates and database
-        migrations; restarting a running VM over that alone is exactly the
-        v2-shaped mistake this rule exists to prevent.
+        migrations, and restarting a running VM over that alone would risk
+        its database.
         """
         if vm.answered:
             entry.consecutive_unreachable = 0
@@ -435,11 +444,10 @@ class Watcher:
             _LOG.warning("watcher: emit failed: %s", exc)
 
     def _notify_safely(self, *, subject: str, description: str, importance: Importance) -> None:
-        """A notification failure must never break the watcher (
-        and the brief's own words). app.notify.notify already guarantees it
-        never raises on its own account -- this is the second, independent
-        guarantee against whatever `self._notify` actually is, since tests
-        are free to inject one that
+        """A notification failure must never break the watcher.
+        app.notify.notify already guarantees it never raises on its own
+        account -- this is a second, independent guarantee against whatever
+        `self._notify` actually is, since tests are free to inject one that
         does not share that discipline."""
         try:
             self._notify(subject, description, importance)
@@ -455,18 +463,30 @@ class Watcher:
         emit: Callable[[Event], None] | None = None,
         *,
         wait: Callable[[float, asyncio.Event], Awaitable[None]] = _default_wait,
-        to_thread: Callable[..., Awaitable[None]] = asyncio.to_thread,
+        to_thread: Callable[..., Awaitable[bool]] = asyncio.to_thread,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """Poll on an interval, forever, without blocking the request path."""
+        """Poll on an interval, forever, without blocking the request path.
+
+        Until a poll first reaches libvirt, and only within the startup window,
+        the next poll comes after STARTUP_RETRY_SECONDS instead of the interval.
+        """
+        started = clock()
+        reached_once = False
         while True:
+            reached = True
             try:
-                await to_thread(self.poll_once, emit)
+                reached = await to_thread(self.poll_once, emit)
             except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
                 raise
             except BaseException:
                 _LOG.exception("watcher: poll_once failed; the watcher is still running")
+            reached_once = reached_once or reached is not False
+            seconds = self._interval_minutes * 60
+            if not reached_once and clock() - started < STARTUP_RETRY_WINDOW_SECONDS:
+                seconds = STARTUP_RETRY_SECONDS
             try:
-                await wait(self._interval_minutes * 60, self._wake)
+                await wait(seconds, self._wake)
             except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
                 raise
             except BaseException:

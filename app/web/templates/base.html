@@ -10,9 +10,12 @@
 <body>
   <div class="layout">
     {% include "_rail.html" %}
-    <main id="content">
-      {% include content_template %}
-    </main>
+    <div class="column">
+      {% if legacy_libvirt_mapping %}{% include "_mount_notice.html" %}{% endif %}
+      <main id="content">
+        {% include content_template %}
+      </main>
+    </div>
   </div>
   {% include "_dock.html" %}
   <script>

@@ -15,6 +15,7 @@ from app.installer import InstallError, InstallPlan, install
 from app.libvirtctl import Virsh
 from app.models import NetworkSource, VMSettings
 from app.releases import RateLimitedError, fetch_latest, fetch_releases
+from app.vmicon import place_vm_icon
 from app.vmxml import generate_mac
 
 
@@ -54,8 +55,14 @@ class RealDeps:
     def resize(self, image, size_gib):
         dl.resize(Path(image), size_gib)
 
-    def prepare_nvram(self, uuid):
-        return dl.prepare_nvram(uuid)
+    def check_ovmf_vars(self):
+        return dl.check_ovmf_vars()
+
+    def ensure_nvram_dir(self):
+        return self._virsh.ensure_directory(paths.NVRAM_DIR)
+
+    def place_vm_icon(self, name):
+        return place_vm_icon(name)
 
     def write_xml(self, xml, path):
         Path(path).write_text(xml)
@@ -96,7 +103,14 @@ def _serve_app() -> None:
     from app.web.state_store import DEFAULT_STATE_PATH
 
     uvicorn.run(
-        create_app(start_watcher=True, state_path=DEFAULT_STATE_PATH), host="0.0.0.0", port=9123
+        create_app(
+            start_watcher=True,
+            state_path=DEFAULT_STATE_PATH,
+            check_mounts=True,
+            place_icon=True,
+        ),
+        host="0.0.0.0",
+        port=9123,
     )
 
 

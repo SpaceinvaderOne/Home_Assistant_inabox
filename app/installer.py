@@ -45,6 +45,7 @@ class Deps(Protocol):
     def remove(self, path) -> None: ...
     def resize(self, image, size_gib) -> None: ...
     def check_ovmf_vars(self): ...
+    def ensure_nvram_dir(self) -> bool: ...
     def place_vm_icon(self, name: str): ...
     def write_xml(self, xml: str, path): ...
     def define(self, path) -> None: ...
@@ -181,11 +182,33 @@ def install(plan: InstallPlan, deps: Deps, emit: Callable[[Event], None]) -> Non
     done("resize")
 
     # 6. firmware. The domain names the OVMF variables template, and libvirt
-    # creates the VM's own NVRAM from it on first start, so this only has to
-    # confirm the template is there before defining something that needs it.
+    # creates the VM's own NVRAM from it on first start. It will not create
+    # the folder that file goes in, which Unraid only makes when its own form
+    # builds a UEFI VM, so both are confirmed before anything is defined.
     step("nvram")
     template = guard("nvram", lambda: deps.check_ovmf_vars())
-    done("nvram", f"libvirt will create this VM's NVRAM from {template}")
+    try:
+        created = deps.ensure_nvram_dir()
+    except Exception as err:
+        fail(
+            "nvram",
+            f"could not make sure Unraid's NVRAM folder {paths.NVRAM_DIR} exists ({err}). "
+            "libvirt needs it to create this VM's NVRAM when the VM first starts. "
+            f"Running mkdir -p {paths.NVRAM_DIR} on the server while VM Manager is "
+            "running creates it, then try the install again.",
+        )
+    if created:
+        done(
+            "nvram",
+            f"created {paths.NVRAM_DIR}, which Unraid only makes when its own form builds "
+            f"a UEFI VM; libvirt will create this VM's NVRAM there from {template}",
+        )
+    else:
+        done(
+            "nvram",
+            f"{paths.NVRAM_DIR} is already there; libvirt will create this VM's NVRAM "
+            f"there from {template}",
+        )
 
     try:
         icon = deps.place_vm_icon(plan.settings.icon)
